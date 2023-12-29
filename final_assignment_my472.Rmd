@@ -15,6 +15,8 @@ library(plotly) #making the ggplot interactive
 library(viridis) #scale color viridis
 library(hrbrthemes)
 library(dplyr)
+library(knitr) #For printing table of Outlier Summary
+library(patchwork)
 
 ```
 
@@ -85,45 +87,7 @@ As for the index having a range of 100, and assuming that the artists' popularit
 
 On the interactive plot bellow, each dot is an artist of the Rolling Stones Ranking. The artist's Spotify popularity can be addressed on the y axis and the colors display wether the Popularity is bigger than 50 or not. The red line shows the regression line of the two variables.
 
-```{r popularity, warning=FALSE, include=TRUE, fig.align='center'}
-
-#Defining a popular artist as anyone with more than 50 in popularity
-artist_info_ranking$is_popular <- ifelse(artist_info_ranking$popularity > 50, "Popular", "Not Popular")
-
-arranging_data <- artist_info_ranking %>%
-  mutate(followers_k = round(followers.total/1000),2) %>%
-  mutate(ranking_group = cut(ranking, breaks = c(seq(0,100,25)), labels = c("1-25", "26-50", "51-75", "76-100"))) %>%
-  # Reorder artists by popularity
-  arrange(desc(followers_k)) %>%
-  mutate(artist_spotify = factor(artist_spotify, artist_spotify)) %>%
-  
-  # prepare text for tooltip
-  mutate(text = paste("Artist: ", artist_spotify, "\nPopularity on Spotify: ", popularity, "\n1,000 Followers: ", followers_k, "\nRanking Rolling Stones: ", ranking, sep=""))
-
-assignment_plot <- arranging_data %>%
-  ggplot() +
-  geom_point(aes(x = ranking, y = popularity, color = is_popular, text = text),size = 3, alpha = 0.5) +
-  geom_line(stat = "smooth", method = lm, aes(x = ranking, y = popularity),formula = 'y ~ x', color = "red", alpha = 0.5) +
-  theme_minimal() +
-  labs(title = "Rolling Stones Ranking x Spotify Popularity",
-        color = NULL,
-       x = "Rolling Stones Ranking",
-       y = "Spotify Popularity") +
-  ylim(0,100) +
-  xlim(0,100) +
-  geom_vline(xintercept = 0, color = "black", alpha = 0.1) +  # Add vertical line at x = 0
-  geom_hline(yintercept = 0, color = "black", alpha = 0.1) +  # Add horizontal line at y = 0
-  theme(legend.position = "bottom",
-        panel.grid = element_line(color = alpha("gray", 0.2), linetype = "dashed"),# Adjust legend position
-        axis.text = element_text(size = 8),  # Adjust axis text size
-        axis.title = element_text(size = 10),
-        plot.title = element_text(hjust = 0.5)) # Adjust axis title size
-
-
-pp_assignment_plot <- ggplotly(assignment_plot, tooltip = "text")
-```
-
-```{r warning=FALSE}
+```{r echo = FALSE, warning=FALSE}
 # Define artist popularity based on a threshold of 50
 artist_info_ranking$is_popular <- ifelse(artist_info_ranking$popularity > 50,
                                          "Popular",
@@ -206,8 +170,7 @@ The Spotify API also provides information on the Top 10 Tracks of each artist in
 
 The plot below portrays, in ascending order of popularity on the Spotify platform, the popularity of each top track by the artists featured in the Rolling Stones Ranking, along with the average track popularity and the artist's overall popularity.
 
-```{r, include = TRUE, fig.width=6, fig.height= 15, fig.align='center'}
-
+```{r prep_p2, include = FALSE, fig.width=6, fig.height= 15, fig.align='center'}
 # Read artist ranking information and top tracks data from RDS files
 artist_info_ranking <- readRDS("artist_info_ranking.rds")
 top_tracks_us <- readRDS("top_tracks_us.rds")
@@ -223,11 +186,6 @@ subset_top_tracks <- top_tracks_us %>% select(artist_id, track_popularity, track
 # Merge the two datasets based on artist IDs
 merged_data_plot2 <- merge(subset_artist, subset_top_tracks, by.x = "id", by.y = "artist_id")
 
-# Arrange the data in order of artist popularity for plotting
-merged_data_plot2 <- merged_data_plot2 %>%
-  group_by(artist_spotify) %>%
-  arrange(popularity)
-
 # Create mean track popularity data for plotting
 mean_data <- merged_data_plot2 %>%
   group_by(artist_spotify) %>%
@@ -240,9 +198,12 @@ merged_data_plot2 <- merge(merged_data_plot2, mean_data, by = "artist_spotify")
 popularity_order <- artist_info_ranking %>% select(artist_spotify, popularity) %>% arrange(desc(popularity))
 
 merged_data_plot2$artist_spotify <- factor(merged_data_plot2$artist_spotify, levels = popularity_order$artist_spotify)
+```
 
+
+```{r p2, include = TRUE, fig.width=6, fig.height= 15, fig.align='center'}
 # Create a ggplot with three sets of points representing different popularity metrics
-p3 <- ggplot(merged_data, aes(y = artist_spotify)) +
+p2 <- ggplot(merged_data_plot2, aes(y = artist_spotify)) +
   geom_point(aes(x = track_popularity, color = "Track Popularity"), size = 1.5, alpha = 0.7) +
   geom_point(aes(x = popularity, color = "Artist Popularity"), size = 1.5, alpha = 0.7) +
   geom_point(aes(x = mean_track_popularity, color = "Average Track Popularity"), size = 1.5, alpha = 0.7) +
@@ -270,83 +231,16 @@ p3 <- ggplot(merged_data, aes(y = artist_spotify)) +
                      sec.axis = sec_axis(~., name = "Popularity"))
   
 # Display the plot
-p3
-```
-
-```{r}
-
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
-
-#Defining the relative popularity
-artist_info_ranking$relative_pop <- ifelse(artist_info_ranking$popularity <= mean(artist_info_ranking$popularity), "Not Popular", "Popular")
-
-#subsetting the columns that are going to be needed
-subset_artist <- artist_info_ranking %>% select(id, artist_spotify, popularity, relative_pop, genres)
-subset_top_tracks <- top_tracks_us %>% select(artist_id, track_popularity, track_id, track_name, album.release_date)
-
-merged_data <- merge(subset_artist, subset_top_tracks, by.x = "id", by.y = "artist_id")
-#Arranging the data in order of Artist Popularity for plotting
-merged_data <- merged_data %>%
-  group_by(artist_spotify) %>%
-  arrange(popularity, mean_track_popularity = mean(track_popularity))
-
-#Creating the mean(track_popularity) data for plotting
-mean_data <- merged_data %>%
-  group_by(artist_spotify) %>%
-  summarise(mean_track_popularity = mean(track_popularity))
-
-# Merge mean data with the original data
-merged_data <- merge(merged_data, mean_data, by = "artist_spotify")
-#Creating the text for the interactive plot
-#merged_data$text <- paste0("Artist: ", artist_spotify,"\n Track: ", track_name ) 
-
-#Factoring the artist_spotify for plotting in order of artist popularity
-#popularity_order <- artist_info_ranking %>% select(artist_spotify, popularity) %>% arrange(popularity)
-popularity_order <- artist_info_ranking %>% select(artist_spotify, popularity) %>% arrange(desc(popularity))
-
-merged_data$artist_spotify <- factor(merged_data$artist_spotify, levels = popularity_order$artist_spotify)
-```
-
-
-```{r, include = TRUE, fig.width=6, fig.height= 15, fig.align='center'}
-p3 <- ggplot(merged_data, aes(y = artist_spotify)) +
-  geom_point(aes(x = track_popularity, color = "Track Popularity"), size = 1.5, alpha = 0.7) +
-  geom_point(aes(x = popularity, color = "Artist Popularity"), size = 1.5, alpha = 0.7) +
-  geom_point(aes(x = mean_track_popularity, color = "Average Track Popularity"), size = 1.5, alpha = 0.7) +
-  theme_minimal() +
-  labs(title = "Artist and Top Tracks (US) Popularity",
-       y = NULL,
-       x = "Popularity",
-       subtitle = "Artists are in Ascending Popularity Order") +
-  scale_color_manual(
-    values = c("#E63946","#FBAF4F","#BFD3C1"),
-    name = NULL
-  ) +
-  theme(axis.text.x = element_text(hjust = 1, vjust = 1),
-        panel.grid = element_line(color = alpha("gray", 0.2), linetype = "solid"),
-        panel.grid.major.x = element_line(linetype = "dashed"),
-        panel.grid.minor.x = element_line(linetype = "dashed"),
-        axis.text.y = element_text(hjust = 1, vjust = 0.5),
-        plot.title = element_text(hjust = 0.5, size = 16),
-        plot.subtitle = element_text(hjust = 0.5, size = 11),
-        legend.position = "top") +
-  geom_vline(xintercept = 0, color = "black", alpha = 0.2) +  # Add vertical line at x = 0
-  scale_x_continuous(breaks = c(0,25,50,75,100),
-                     expand = c(0,0),
-                     limits = c(-1,101),
-                     sec.axis = sec_axis(~., name = "Popularity"))
-  
-p3
+p2
 ```
 
 It is possible to notice that, for every artist on the Rolling Stones Ranking, the Spotify Popularity is bigger than the Average Top Tracks Popularity of the artist. However, it is also clear that if an artist's top tracks has a bigger Popularity, then, on average, the artist will also present a bigger popularity too, although the average popularity of the top tracks is never greater than the general Artist Popularity.
 
-An interesting aspect that gan also be highlighted is, when analyzing the tracks' popularity is the presence of outliers, specially among the less popular artists. Using the Interquartile Range to identify possible outliers, the table below shows that the average popularity of the artists that have a positive outlier, is below the Average Popularity of all the artists that are part of the Rolling Stones Ranking. This suggests that the most popular artists of today are not the ones with one time hits, but the ones who are able to have multiple musical hits.
+An interesting aspect that can also be highlighted is, when analyzing the tracks' popularity is the presence of outliers, specially among the less popular artists. Using the Interquartile Range to identify possible outliers, the table below shows that the average popularity of the artists that have a positive outlier, is below the Average Popularity of all the artists that are part of the Rolling Stones Ranking. This suggests that the most popular artists of today are not the ones with one time hits, but the ones who are able to have multiple musical hits.
 
 ```{r}
 #Assign tracks that have positive outliers using IQR
-merged_data_outlier <- merged_data %>%
+merged_data_outlier <- merged_data_plot2 %>%
   group_by(artist_spotify) %>%
     mutate(
     Q1 = quantile(track_popularity, 0.25),
@@ -368,32 +262,194 @@ outlier_summary <- merged_data_outlier %>%
             "Mean Difference to Average Track Popularity" = mean(diff_to_mean),
             "Max Difference to Average Track Popularity" = max(diff_to_mean))
 
-library(knitr) #For printing table of Outlier Summary
-
 # Convert the summary table to a nicely formatted table
 kable(outlier_summary, "simple", align = 'c', caption = "Positive Outliers Summary")
 ```
 
+In that sense, another characteristic that can potentially impact the current popularity of an artist would be the time. For instance, if the band does not exist anymore and they are not producing new music, the popularity of the artist might fade over time. In that sense, using the information from the Spotify API, along with data scraped from the [MusicBrainz.org](https://musicbrainz.org/) it is possible to analyse, for each of the top tracks of the artists, if, at the time that the track was released if the artist had already passed away, or if the band or group had been dissolved. 
+
+For the plots below, it is possible to identify the tracks that were released while the artist or group was still active ("Regular Release") and the tracks that were launched after the artist or group were not performing anymore ("Release After End").
+The plots are separated by artist popularity - Popular artists have more than 50 popularity points on Spotify.
+
+```{r}
+artist_info_ranking <- readRDS("artist_info_ranking.rds")
+top_tracks_us <- readRDS("top_tracks_us.rds")
+mbdata <- readRDS("./data/mbdata.rds")
+
+#Selecting the necessary variables from each of the datasets
+subset_mbdata <- mbdata %>% select(artist_spotify, Begin, End)
+subset_artist_info_ranking <- artist_info_ranking %>% select(artist_spotify, artist_id = id, popularity)
+subset_top_tracks_us <- top_tracks_us %>% select(artist_spotify, artist_id, track_name, track_id, track_popularity, album.release_date)
+
+merge_data_p3 <- merge(subset_mbdata, subset_artist_info_ranking, by = "artist_spotify")
+
+merge_data_p3 <- merge(merge_data_p3, subset_top_tracks_us, by = "artist_id")
+
+# Convert dates to Date objects
+merge_data_p3$Begin <- as.Date(merge_data_p3$Begin)
+merge_data_p3$End <- as.Date(merge_data_p3$End)
+merge_data_p3$album.release_date <- as.Date(merge_data_p3$album.release_date)
+
+merge_data_p3$band_ended <- ifelse(merge_data_p3$End < merge_data_p3$album.release_date, "Artist not Active", "Regular Release")
+
+merge_data_p3$band_ended[is.na(merge_data_p3$band_ended)] <- "Regular Release"
+
+merge_data_p3$is_pop <- ifelse(merge_data_p3$popularity > 50, "Popular Artist", "Unpopular Artist")
+
+average_popularity <- merge_data_p3 %>%
+  group_by(band_ended) %>%
+  summarise(avg_popularity = mean(popularity))
+```
+
+```{r}
+plot_data <- merge_data_p3 %>% filter(!is.na(album.release_date))
+
+# Create the plot
+p <- ggplot(merge_data_p3, aes(x = album.release_date, y = track_popularity, color = is_pop)) +
+  geom_point(size = 3, alpha = 0.7) +
+  #geom_hline(data = average_popularity, aes(yintercept = avg_popularity, color = band_ended), linetype = "dashed", size = 1, show.legend = TRUE) +
+  scale_x_date(date_breaks = "years", date_labels = "%Y") +
+  labs(title = "Track Popularity Over Album Release Dates",
+       x = "Album Release Date",
+       y = "Track Popularity") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE)
+
+# Display the plot
+print(p)
+
+p <- ggplot(merge_data_p3, aes(x = album.release_date, y = track_popularity, color = band_ended)) +
+  geom_point(size = 3, alpha = 0.7) +
+  #geom_hline(data = average_popularity, aes(yintercept = avg_popularity, color = band_ended), linetype = "dashed", size = 1, show.legend = TRUE) +
+  scale_x_date(date_breaks = "years", date_labels = "%Y") +
+  labs(title = "Track Popularity Over Album Release Dates",
+       x = "Album Release Date",
+       y = "Track Popularity") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE)
+
+# Display the plot
+p
+
+
+```
+
+```{r fig.width=10, message=FALSE, warning=FALSE, echo = FALSE, include = TRUE}
+# Create the plot for band_ended facet
+p2 <- ggplot(plot_data %>% filter(is_pop == "Popular Artist"), aes(x = album.release_date, y = track_popularity, color = band_ended)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y", limits = c(as.Date("1958-01-01"), as.Date("2023-12-12") )) +
+  labs(title = "Track Popularity Over Album Release Dates",
+       subtitle = "For 'Popular' Artists",
+       x = "Album Release Date",
+       y = "Track Popularity",
+       color = "") +
+  theme_minimal() +
+  ylim(0,100) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme(legend.position = "bottom",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(linetype = "dashed"),
+        panel.grid.major.y = element_line(linetype = "dashed"),
+        plot.title = element_text(size = 16, hjust = 0.5, color = "black", face = "bold"),
+        plot.subtitle = element_text(size = 12, hjust = 0.5, color = "black")) +
+  geom_hline(aes(yintercept = 0), linetype = "solid", color = "black", alpha = 0.5)
+
+p3 <- ggplot(plot_data %>% filter(is_pop != "Popular Artist"), aes(x = album.release_date, y = track_popularity, color = band_ended)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y", limits = c(as.Date("1958-01-01"), as.Date("2023-12-12") )) +
+  labs(title = "Track Popularity Over Album Release Dates",
+       subtitle = "For 'Unpopular' Artists",
+       x = "Album Release Date",
+       y = "Track Popularity",
+       color = "") +
+  theme_minimal() +
+  ylim(0,100) +
+  #xlim(as.Date("1960-01-01"), NA) +
+  geom_smooth(method = "lm", se = FALSE)+
+  theme(legend.position = "bottom",
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(linetype = "dashed"),
+        panel.grid.major.y = element_line(linetype = "dashed"),
+        plot.title = element_text(size = 16, hjust = 0.5, color = "black", face = "bold"),
+        plot.subtitle = element_text(size = 12, hjust = 0.5, color = "black")) +
+  geom_hline(aes(yintercept = 0), linetype = "solid", color = "black", alpha = 0.5)
+
+# Display the plots side by side
+library(gridExtra)
+grid.arrange(p3, p2, ncol = 2)
+
+```
+
+
+The first thing that can be seen in the plots is the concentration of songs released prior to 1995, but this expected given that most of the artists in the Rolling Stones Ranking are historial figures.
+
+For the popular artists, this change is not so clear on the regression lines, so no major conclusions can be made from that.
+
+Analysing the left side graph it is also clear the correlation of the moment of the release of the song and the status of the band. In that context, the Unpopular artists may be the ones that remained active but never achieved the same success of the past, whereas the relaunch of old hits is more likely to improve the popularity.
+
+In that case, one interesting suggestion is that the end of the band or group, could help improve the popularity of the artist over time, maybe because Regular Released Tracks are "New Tracks" while tracks released After the End of the band are relaunches of old time successes that could have a "guarantee" better performance.It is also important to recall that the artists' popularity is derived from their music popularity, hence, the dots plotted on the graphs above can be seen as the cause of a lower popularity, and not that the smaller popularity may cause the track to be unpopular.
+
+To finish, this study, we analyse the audio features of the tracks. Were the old songs, inherently different from the new hits? Does the song in itself makes a difference to the performance of the artist?
 
 ```{r, fig.height=20}
 # Merge the dataframes based on artist_spotify
-merged_df <- merge(audio_features_us, artist_info_ranking, by = "artist_spotify")
+artist_info_ranking <- readRDS("artist_info_ranking.rds")
+top_tracks_us <- readRDS("top_tracks_us.rds")
+audio_features_us <- readRDS("audio_features_us.rds")
 
-# Create a new column to identify relative_pop artists
-merged_df$relative_pop <- ifelse(merged_df$relative_pop == "Popular", "Yes", "No")
+#First we need to merge the artist_info_ranking and the audio_feature_us to determine the popular and non popular artists
+artist_info_ranking_subset <- artist_info_ranking %>% select(artist_id = id, popularity)
 
-# Load required libraries
-library(ggplot2)
-library(patchwork)
+audio_features_us_merged <- merge(audio_features_us, artist_info_ranking_subset, by = "artist_id") 
+
+#Creating the column is_pop in the audio_features_us_merged
+audio_features_us_merged$is_pop <- ifelse(audio_features_us_merged$popularity > 50, "Popular", "Unpopular")
+
+#Importing the data from the popular artists of 2023 audio features
+popular_art_aud_feat <- readRDS("popular_artists_audio_features.rds")
+#Creating a column to indicate that these are the most popular artists
+popular_art_aud_feat$is_pop <- "Most Popular Today"
+
+#Selecting the columns that will be analised
+subset_cols <- c("artist_spotify",
+                 "track_id",
+                 "artist_id",
+                 "is_pop",
+                 "danceability",
+                 "energy",
+                 "loudness",
+                 "mode",
+                 "speechiness",
+                 "acousticness",
+                 "instrumentalness",
+                 "liveness",
+                 "valence",
+                 "tempo")
+
+#Creating the subsets that will be merged to be plotted
+audio_features_us_subset <- audio_features_us_merged %>% select(all_of(subset_cols))
+popular_art_aud_feat_subset <- popular_art_aud_feat %>% select(all_of(subset_cols))
+
+#The dfs have the same columns, so we will just rbind them
+audio_feature_plot_data <- rbind(audio_features_us_subset, popular_art_aud_feat_subset)
 
 # Select relevant columns for comparison
-comparison_cols <- c("danceability", "energy", "key", "loudness", "mode", 
-                     "speechiness", "acousticness", "instrumentalness", 
-                     "liveness", "valence", "tempo")
+comparison_cols <- c("danceability",
+                 "energy",
+                 "loudness",
+                 "speechiness",
+                 "acousticness",
+                 "liveness",
+                 "valence",
+                 "tempo")
+```
 
+
+```{r fig.height=20, fig.width = 10}
 # Create side-by-side box plots in a grid with 3 columns
 plots <- lapply(comparison_cols, function(col) {
-  ggplot(merged_df, aes(x = relative_pop, y = get(col), fill = relative_pop)) +
+  ggplot(audio_feature_plot_data, aes(x = is_pop, y = get(col), fill = is_pop)) +
     geom_boxplot() +
     labs(title = paste(col),
          x = "Popularity",
@@ -403,44 +459,42 @@ plots <- lapply(comparison_cols, function(col) {
 })
 
 # Arrange plots in a grid with 3 columns
-grid_plots <- wrap_plots(plots, ncol = 3)
+grid_plots <- wrap_plots(plots, ncol = 5)
 
 # Display the grid of plots
 print(grid_plots)
 ```
 
-```{r, fig.height= 20, fig.width=10}
 
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
-top_tracks_gb <- readRDS("top_tracks_gb.rds")
-audio_features_us <- readRDS("audio_features_us.rds")
-audio_features_gb <- readRDS("audio_features_gb.rds")
+```{r fig.height=15, fig.width = 8}
+custom_colors <- c("#1F78B4", "#FF7F00", "#33A02C")
 
-#Defining the relative popularity
-artist_info_ranking$relative_pop <- ifelse(artist_info_ranking$popularity <= mean(artist_info_ranking$popularity), "Not Popular", "Popular")
+#Plotting based on artist popularity
+plots <- lapply(comparison_cols, function(col) {
+  ggplot(audio_feature_plot_data, aes(x = get(col), fill = is_pop)) +
+    geom_density(alpha = 0.3) +
+    scale_fill_manual(values = custom_colors) +
+    labs(title = paste("Density Plot of", col),
+         x = col,
+         fill = "Artist Popularity") +
+    theme_minimal()+
+    theme(legend.position = "bottom")
+})
+# Arrange plots in a grid with 3 columns
+grid_plots <- wrap_plots(plots, ncol = 2)
 
-#Getting the tracks popularity along with the audio features
-subset_top_track <- top_tracks_us %>% select(artist_id, track_id, track_name, track_popularity)
-merged_df <- merge(audio_features_us, subset_top_track, by = c("track_id", "artist_id"))
+# Display the grid of plots
+print(grid_plots)
+```
 
-subset_artist_pop <- artist_info_ranking %>% select(artist_id = id, artist_popularity = popularity, relative_pop)
-merged_df <- merge(merged_df, subset_artist_pop, by = "artist_id")
 
-# Create a new column to identify relative_pop artists
-merged_df$relative_pop <- ifelse(merged_df$relative_pop == "Popular", "Yes", "No")
 
-# Load required libraries
-library(ggplot2)
 
-# Select relevant columns for scatter plots
-scatter_cols <- c("danceability", "energy", "key", "loudness", "mode", 
-                  "speechiness", "acousticness", "instrumentalness", 
-                  "liveness", "valence", "tempo")
 
+```{r, fig.height= 20, fig.width=10, eval = FALSE}
 # Create scatter plots in a grid with 3 columns
-plots <- lapply(scatter_cols, function(col) {
-  ggplot(merged_df, aes(x = track_popularity, y = get(col), color = artist_popularity)) +
+plots <- lapply(comparison_cols, function(col) {
+  ggplot(audio_feature_plot_data, aes(x = track_popularity, y = get(col), color = artist_popularity)) +
     geom_point(alpha = 0.3) +
     labs(title = paste(col),
          #x = "Track Popularity",
@@ -460,7 +514,7 @@ print(grid_plots)
 
 ```
 
-```{r, fig.height= 20, fig.width=10}
+```{r, fig.height= 20, fig.width=10, eval = FALSE}
 library(ggplot2)
 library(hexbin)
 
@@ -486,7 +540,7 @@ print(grid_plots)
 ```
 
 
-```{r, fig.height= 20, fig.width=10}
+```{r, fig.height= 20, fig.width=10, eval = FALSE}
 library(ggplot2)
 library(hexbin)
 merged_df$is_track_pop <- ifelse(merged_df$track_popularity > 50, "Popular Song", "Unpopular Song")
@@ -517,16 +571,6 @@ plots <- lapply(scatter_cols, function(col) {
     theme(legend.position = "bottom")
 })
 
-#Plotting based on artist popularity
-plots <- lapply(scatter_cols, function(col) {
-  ggplot(merged_df, aes(x = get(col), fill = is_popular)) +
-    geom_density(alpha = 0.3) +
-    scale_fill_manual(values = custom_colors) +
-    labs(title = paste("Density Plot of", col),
-         x = col) +
-    theme_minimal()+
-    theme(legend.position = "bottom")
-})
 
 
 
@@ -552,9 +596,9 @@ print(grid_plots)
 
 ```
 
-```{r}
+```{r, eval = FALSE}
 # Subset the data frame to include only the relevant columns
-subset_df <- merged_df[c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo", "artist_popularity.x")]
+subset_df <- merged_df[c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo", "artist_popularity")]
 
 # Assuming your model was created using lm function
 model <- lm(artist_popularity.x ~ ., data = subset_df)
@@ -569,7 +613,7 @@ diagnostic_plots(model)
 
 
 ```
-```{r}
+```{r, eval = FALSE}
 # Install and load necessary packages (if not already installed)
 if (!requireNamespace("ggplot2", quietly = TRUE)) {
   install.packages("ggplot2")
@@ -614,7 +658,7 @@ diagnostic_plots <- function(data, dependent_var, independent_vars) {
 }
 
 # Call the function with your data frame and variable names
-diagnostic_plots(subset_df, "artist_popularity.x", c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo"))
+diagnostic_plots(subset_df, "artist_popularity", c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo"))
 
 
 ```
