@@ -58,3 +58,25 @@ rankings_df <- data.frame(ranking = html_elements_ranking, artist = html_element
 
 # Save the data frame as a CSV file
 write.csv(rankings_df, file = "rs_ranking.csv", row.names = FALSE)
+
+
+
+
+
+
+
+
+
+library(httr)
+url <- "https://charts.spotify.com/charts/view/artist-us-weekly/2023-12-14"
+response <- GET(url)
+
+html_elements_ranking <- read_html(response) %>%
+  html_elements(".styled__Wrapper") %>% html_text()
+html_content <- content(response, "text")
+
+#__next > div > div > main > div.Content-sc-1n5ckz4-0.jyvkLv > div:nth-child(3) > div > table > tbody > tr:nth-child(53) > td:nth-child(3) > div > div.styled__Wrapper-sc-135veyd-14.gPJpnT
+
+print(html_content)
+
+
