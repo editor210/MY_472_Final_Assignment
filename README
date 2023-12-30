@@ -1,2 +1,0 @@
-The file under mbdump/ contains one document (entity) per line, in JSON
-format, and is named according to the type of entity in the dump.

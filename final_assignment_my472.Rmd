@@ -2,92 +2,685 @@
 title: "Final Assignment"
 output: html_document
 date: "2023-12-26"
-github repository: https://github.com/editor210/MY_472_Final_Assignment
+github repository: 'https://github.com/editor210/MY_472_Final_Assignment'
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(dplyr)
+library(RSelenium)
+
+library(spotifyr)
+library("jsonlite")
+library(dplyr)
 
 library(ggplot2)
-library(ggpubr) #for stat_cor
-library(corrplot) #for correlation table
 library(plotly) #making the ggplot interactive
-library(viridis) #scale color viridis
-library(hrbrthemes)
-library(dplyr)
 library(knitr) #For printing table of Outlier Summary
+
+library(tools)
 library(patchwork)
-
-```
-
-```{r functions}
-#Creating the Functions that are going to be needed on the code below
-
-
 ```
 
 
 ```{r rs_ranking, include = FALSE, echo = FALSE}
+# ############### Getting Rolling Stones Ranking Info
+# 
+# #Retrieving the information from the Rolling Stones Ranking
+# rD <- rsDriver(browser=c("firefox"), verbose = F, chromever = NULL)
+# 
+# driver <- rD[["client"]] 
+# url <- "https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/"
+# 
+# #Navigating to the URL
+# driver$navigate(url)
+# 
+# #Allowing the page to load
+# Sys.sleep(2)
+# 
+# #Rejecting cookies
+# cookie <- driver$findElement(using = 'css', value = '#onetrust-reject-all-handler')
+# cookie$clickElement()
+# 
+# #Getting to the bottom of the page
+# # loading all the dynamic html
+# webElem <- driver$findElement("css", "body")
+# webElem$sendKeysToElement(list(key = "end"))
+# 
+# #Getting the full page html
+# page_source <- driver$getPageSource()[[1]]
+# 
+# #Extracting the rankings
+# html_elements_ranking <- read_html(page_source) %>%
+#   html_nodes(".c-gallery-vertical-album__number") %>% html_text()
+# 
+# #Extracting the Artists for each ranking
+# html_elements_titles <- read_html(page_source) %>%
+#   html_nodes(".c-gallery-vertical-album__title") %>% html_text()
+# 
+# #Finding the load_more button
+# load_more <- driver$findElement(using = 'css', value = ".c-gallery-vertical__load-button")
+# load_more$clickElement()
+# 
+# #Going to the bottom of the page to load every artist
+# webElem <- driver$findElement("css", "body")
+# webElem$sendKeysToElement(list(key = "end"))
+# 
+# #Getting the full page html
+# page_source <- driver$getPageSource()[[1]]
+# 
+# #Extracting the rankings
+# html_elements_ranking <- c(html_elements_ranking, read_html(page_source) %>%
+#   html_nodes(".c-gallery-vertical-album__number") %>% html_text())
+# 
+# #Extracting the Artists for each ranking
+# html_elements_titles <- c(html_elements_titles, read_html(page_source) %>%
+#   html_nodes(".c-gallery-vertical-album__title") %>% html_text())
+# 
+# #Closing the port 
+# driver$close()
+# rD$server$stop()
+# 
+# # close the associated Java processes if necessary:
+# system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
+# 
+# #Transforming the data into a Dataframe
+# rankings_df <- data.frame(ranking = html_elements_ranking, artist = html_elements_titles)
+# 
+# # Save the data frame as a RDS file
+# #saveRDS(rankings_df, "./data/rs_ranking.rds")
+```
+
+```{r artist_info_ranking, include = FALSE, echo = FALSE}
+# ############### Getting Spotify Info for Every Artist in the RS Ranking
+# 
+# #Reading the client ID and Secret to access the API
+# readRenviron("api.env")
+# client_id <- Sys.getenv("SPOTIFY_CLIENT_ID")
+# client_secret <- Sys.getenv("SPOTIFY_CLIENT_SECRET")
+# 
+# #Generating the access_token
+# access_token <- get_spotify_access_token(client_id, client_secret)
+# 
+# #Retrieving the information from the Rolling Stones Ranking
+# rs_ranking <- readRDS("./data/rs_ranking.rds")
+# 
+# #Creating a DF to store the data
+# artist_id_pop <- data.frame()
+# 
+# # Loop through each artist in the Rolling Stones Ranking
+# for (artist in rs_ranking$artist){
+#   q <- artist
+#   print(q)
+#   # Search for the artist on Spotify
+#   # and getting only the first result
+#   result <- search_spotify(
+#     q,
+#     type = "artist",
+#     market = NULL,
+#     limit = 1,
+#     offset = 0,
+#     include_external = NULL,
+#     authorization = access_token,
+#     include_meta_info = FALSE
+#   )
+#   
+#   new_row <- data.frame(result)
+#   
+#   # Add artist name and Spotify data to the dataframe
+#   new_row <- cbind(artist_rs = q, new_row)
+#   artist_id_pop <- rbind(artist_id_pop, new_row)
+# }
+# 
+# #Save the initial result as a RDS file to avoid having to make new calls to the API
+# #saveRDS(artist_id_pop, file = "./data/artist_id_pop_spotify.rds")
+# 
+# #Loading the data that was saved
+# artist_id_pop <- readRDS("./data/artist_id_pop_spotify.rds")
+# 
+# # Checking for differences on the artist of the Ranking
+# # and the result retrieved from the API
+# for (i in 1:nrow(artist_id_pop)){
+#   if (artist_id_pop$name[i] != artist_id_pop$artist_rs[i]){
+#   print(paste("different name on index", i))
+#   print(paste("1 -",artist_id_pop$name[i]))
+#   print(paste("2 -",artist_id_pop$artist_rs[i]))
+#   }
+# }
+# 
+# #Differences are minor or non relevant (eg. &, and; upper and lower case differences)
+# #Only notable differences are:
+# # - Santana and Carlos Santana -> Sticking to the id provided by spotify that is the verified artist
+# # - Hank Williams brought the Hank Williams Jr singer. Must be replaced by Hank Williams with the artist ID of '1FClsNYBUoNFtGgzeG74dW'
+# # - Differences on line 43 "1 - George Clinton & Parliament Funkadelic" - "2 - Parliament and Funkadelic"
+# 
+# #Retrieving the correct information on the wrong artists
+# 
+# #Getting the ids of the artists that are wrong
+# #Parliament and Funkadelic
+# par_fun_wrong_id <- artist_id_pop %>% filter(artist_rs == "Parliament and Funkadelic") %>% pull(id)
+# #Hank Williams
+# hank_wil_wrong_id <- artist_id_pop %>% filter(artist_rs == "Hank Williams") %>% pull(id)
+# 
+# #Doing the search again to check for better results
+# result <- search_spotify(
+#   "Parliament Funkadelic",
+#   type = "artist",
+#   market = NULL,
+#   limit = 20,
+#   offset = 0,
+#   include_external = NULL,
+#   authorization = get_spotify_access_token(),
+#   include_meta_info = FALSE
+# )
+# 
+# #Selecting the lines of the band Parliament and the band Funkadelic
+# result_par <- subset(result, id == "5SMVzTJyKFJ7TUb46DglcH")
+# new_row_p <- cbind(artist_rs = "Parliament and Funkadelic", result_par)
+# result_fun <- subset(result, id == "450o9jw6AtiQlQkHCdH6Ru")
+# new_row_f <- cbind(artist_rs = "Parliament and Funkadelic", result_fun)
+# #Removing the line with the wrong result
+# artist_id_pop <- subset(artist_id_pop, id != par_fun_wrong_id)
+# #Adding the new lines
+# new_row <- rbind(new_row_p, new_row_f)
+# artist_id_pop <- rbind(artist_id_pop, new_row)
+# 
+# #Getting Hank Williams info
+# result <- search_spotify(
+#   "Hank Williams",
+#   type = "artist",
+#   market = NULL,
+#   limit = 20,
+#   offset = 0,
+#   include_external = NULL,
+#   authorization = get_spotify_access_token(),
+#   include_meta_info = FALSE
+# )
+# 
+# #Getting the row with the correct result
+# result_hank_wil <- subset(result, id == "1FClsNYBUoNFtGgzeG74dW")
+# new_row <- cbind(artist_rs = "Hank Williams", result_hank_wil)
+# #Removing the row that was wrong
+# artist_id_pop <- subset(artist_id_pop, id != hank_wil_wrong_id)
+# artist_id_pop <- rbind(artist_id_pop, new_row)
+# 
+# #Saving the dataset as a RDS file
+# #saveRDS(artist_id_pop, file = "./data/artist_id_pop.rds")
+# 
+# #Retrieving the data 
+# artist_id_pop <- readRDS("./data/artist_id_pop.rds")
+# 
+# # Merging the two dataframes, to get one dataset with
+# # with the Rolling Stones Ranking and the Spotify data
+# artist_info_ranking <- merge(rs_ranking, artist_id_pop,
+#                              by.x = "artist", by.y = "artist_rs",
+#                              all.x = TRUE)
+# 
+# #Changing the names of columns
+# artist_info_ranking <- artist_info_ranking %>%  rename(artist_rs = artist,
+#                                                        artist_spotify = name)
+# 
+# # Reorder columns
+# artist_info_ranking <- artist_info_ranking %>%
+#   select(ranking, artist_rs, artist_spotify, id, everything())
+# 
+# artist_info_ranking <- artist_info_ranking[order(artist_info_ranking$ranking), ]
+# 
+# #Correcting the name on the artist_rs column for Parliament and Funkadelic
+# artist_info_ranking <- artist_info_ranking %>%
+#   mutate(artist_rs = ifelse(artist_rs == "Parliament and Funkadelic",
+#                             paste0("Parliament and Funkadelic (", artist_spotify, ")"),
+#                             artist_rs))
+# 
+# # Save the merged dataframe as an RDS file
+# #saveRDS(artist_info_ranking, file = "./data/artist_info_ranking.rds")
+```
+
+```{r spotify_toptracks, include = FALSE, echo = FALSE}
+# ############### Getting Top Tracks for Every Artist in the RS Ranking
+# 
+# #Retrieving the necessary RDS File
+# artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+# 
+# #Getting the top tracks of each artist in the us
+# #Setting the access_token
+# access_token <- get_spotify_access_token(client_id, client_secret)
+# 
+# # Creating an empty dataframe to store top tracks
+# top_tracks_us <- data.frame()
+# 
+# # Loop through each artist in the ranking dataframe
+# for (i in 1:nrow(artist_info_ranking)){
+#    # Get the Spotify ID of the artist
+#   id <- artist_info_ranking$id[i]
+#   
+#   # Get the top tracks of the artist in the US
+#   result <- get_artist_top_tracks(
+#     id,
+#     market = "US",
+#     authorization = access_token,
+#     include_meta_info = FALSE
+#   )
+#   # Print the artist's name for visibility
+#   print(artist_info_ranking$artist_rs[i])
+# 
+#   # Assume that the main artist of the track is the one we are looking for
+#   result$artists <- id
+#   
+#   # Include the name of the artist for better readability
+#   result$artist_spotify <- artist_info_ranking$artist_spotify[i]
+#   
+#   # Append the new rows to the dataframe
+#   new_rows <- result
+#   top_tracks_us <- rbind(top_tracks_us, new_rows)
+# }
+# 
+# # Changing column names for consistency
+# for (name in c("id", "name", "popularity", "preview_url")){
+#   colnames(top_tracks_us)[colnames(top_tracks_us) == name] <- paste0("track_",name)
+# }
+# 
+# # Renaming the "artists" column to "artist_id"
+# colnames(top_tracks_us)[colnames(top_tracks_us) == "artists"] <- "artist_id"
+# 
+# # Reordering columns for better readability
+# top_tracks_us <- top_tracks_us %>%
+#   select(artist_spotify, artist_id, track_name, track_popularity, track_id, everything())
+# 
+# # Saving the dataframe as an RDS file
+# #saveRDS(top_tracks_us, file = "./data/top_tracks_us.rds")
 
 ```
 
-```{r spotify_data}
+
+```{r spotify_audio_features, include = FALSE, echo = FALSE}
+# ############### Getting audio features for all the top tracks US
+# 
+# 
+# # Setting the access_token
+# access_token <- get_spotify_access_token(client_id, client_secret)
+# 
+# # Creating an empty dataframe to store audio features
+# audio_features_us <- data.frame()
+# 
+# # Initializing vectors to store track information
+# track_list <- c(NULL)
+# artist_id <- c(NULL)
+# artist_spotify <- c(NULL)
+# 
+# # Loop through each track in the top tracks US dataframe
+# for (i in 1:nrow(top_tracks_us)){
+#   # Get the track ID
+#   track <- top_tracks_us$track_id[i]
+#   
+#   # Append track information to vectors
+#   track_list <- c(track_list, track)
+#   artist_id <- c(artist_id, top_tracks_us$artist_id[i])
+#   artist_spotify <- c(artist_spotify, top_tracks_us$artist_spotify[i])
+#   
+#   # If 100 tracks are accumulated or it's the last iteration, get audio features
+#   if (length(track_list) == 100 | i == nrow(top_tracks_us)){
+#     result <- get_track_audio_features(track_list,
+#                                        authorization = access_token)
+#     
+#     # Combine audio features with artist information
+#     new_rows <- cbind(result, artist_id)
+#     new_rows <- cbind(new_rows, artist_spotify)
+#     
+#     # Append the new rows to the dataframe
+#     audio_features_us <- rbind(audio_features_us, new_rows)
+#     
+#     # Restarting the track list and related vectors
+#     track_list <- c(NULL)
+#     artist_id <- c(NULL)
+#     artist_spotify <- c(NULL)
+#   }
+# }
+# 
+# # Renaming the "id" column to "track_id"
+# colnames(audio_features_us)[colnames(audio_features_us) == "id"] <- "track_id"
+# 
+# # Saving the dataframe as an RDS file
+# #saveRDS(audio_features_us, file = "./data/audio_features_us.rds")
+```
+
+
+```{r scraping_music_brainz_data, include = FALSE, echo = FALSE}
+# ############### Scraping the music Brainz website
+# ############### to get information on the end of each artist
+# # 
+# 
+# # Reading the artist information from a saved RDS file
+# artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+# 
+# # Setting up a WebDriver for scraping MusicBrainz website
+# rD <- rsDriver(browser=c("firefox"), verbose = F, chromever = NULL)
+# driver <- rD[["client"]] 
+# url <- "https://musicbrainz.org/"
+# 
+# # Navigating to the MusicBrainz website
+# driver$navigate(url)
+# 
+# # Creating empty dataframes to store MusicBrainz data
+# mbdata <- data.frame()
+# all_results <- data.frame()
+# 
+# # Looping through each artist in the Rolling Stones ranking
+# for (artist in artist_info_ranking$artist_spotify){
+#   # Find the search field and perform the search
+#       
+#   # Performing a search for each artist on MusicBrainz
+#   while (TRUE){
+#     # printing the artist that is being searched
+#     print(artist)
+#     
+#     # Finding the search field and performing the search
+#     search_field <- driver$findElement(using = 'css', value = '#headerid-query')
+#     search_field$sendKeysToElement(list(artist))
+#     search_field$sendKeysToElement(list(key = "enter"))
+#         
+#     # Giving time for the search results to show
+#     Sys.sleep(2)
+#     
+#     # Getting the search results
+#     search_results <- try(driver$findElement(using = 'css', value = ".tbl"), silent = TRUE)
+#     
+#     # If there is an internal error, try the search again
+#     if ("try-error" %in% class(search_results)){
+#       print("Trying search again")
+#       Sys.sleep(2)
+#     } else {break}
+#   }
+#   
+#   # Extracting the outer HTML of the table
+#   results_html <- search_results$getElementAttribute("outerHTML")
+#   
+#   #Reading the HTML element of the results
+#   results_html <- read_html(results_html[[1]])
+#   
+#   #Extracting the table of the results
+#   results_table <- html_table(results_html)[[1]]
+#   
+#   #selecting the first row as the correct result
+#   new_row <- results_table[1,]
+#   new_row <- cbind(artist_spotify = artist, new_row)
+#   mbdata <- rbind(mbdata, new_row)
+#   
+#   #Saving all other results in case there is mismatch
+#   result_rows <- cbind(artist_spotify = artist, results_table)
+#   all_results <- rbind(all_results, result_rows)
+# }
+# 
+# # Closing the port 
+# driver$close()
+# rD$server$stop()
+# 
+# # close the associated Java processes if necessary:
+# system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
+# 
+# # Correcting the result for The Drifters that found a Taiwanese group
+# the_drifters <- all_results[(all_results$artist == "The Drifters"),]
+# #The correct result is the second row
+# the_drifters <- the_drifters[2,]
+# 
+# # replacing the row in the mbdata dataframe
+# # Finding the index of the original data
+# drifters_index <- which(mbdata$artist == "The Drifters")
+# # Update the corresponding row in mbdata with the corrected information
+# mbdata[drifters_index, ] <- the_drifters
+# 
+# 
+# # Treating the Begin and End dates to make them in a uniform format
+# # If there is only the year and month, the day 01 is assigned
+# # If there is only the year, the first of july of the year is assigned
+# 
+# mbdata$Begin <- ifelse(nchar(mbdata$Begin) == 4, paste0(mbdata$Begin, "-07-01"), mbdata$Begin)
+# mbdata$Begin <- ifelse(nchar(mbdata$Begin) == 7, paste0(mbdata$Begin, "-01"), mbdata$Begin)
+# 
+# mbdata$End <- ifelse(is.na(mbdata$End), "", mbdata$End)
+# mbdata$End <- ifelse(nchar(mbdata$End) == 4, paste0(mbdata$End, "-07-01"), mbdata$End)
+# mbdata$End <- ifelse(nchar(mbdata$End) == 7, paste0(mbdata$End, "-01"), mbdata$End)
+# 
+# #Saving the mbdata as a RDS file to be loaded later
+# #saveRDS(mbdata, ".\data\mbdata.rds")
+```
+
+```{r most_popular_info, include=FALSE, echo=FALSE}
+# ############### Retrieving information of the Most Popular Artists today
+# ############### Retrieving their top tracks and audio features on Spotify
+# 
+# 
+# # Setting the URL for the webpage with Spotify's most popular artists
+# url <- "https://chartmasters.org/spotify-most-popular-artists/"
+# 
+# # Reading HTML content from the webpage
+# html_content <- read_html(url)
+# 
+# # Extracting tabular data from the HTML content
+# tab <- html_table(html_content, fill = TRUE)
+# popular_artists <- tab[[1]]
+# 
+# # Renaming columns for better readability
+# colnames(popular_artists) <- c("rank",
+#                                "artist_img",
+#                                "artist_cm",
+#                                "popularity",
+#                                "weekly +/-",
+#                                "daily Streams")
+# 
+# # Removing unnecessary columns
+# popular_artists <- popular_artists %>% select(-artist_img, -"weekly +/-", - popularity)
+# 
+# ### Getting the Spotify id for these artists
+# 
+# # Getting the info to access the API
+# readRenviron("api.env")
+# client_id <- Sys.getenv("SPOTIFY_CLIENT_ID")
+# client_secret <- Sys.getenv("SPOTIFY_CLIENT_SECRET")
+# access_token <- get_spotify_access_token(client_id, client_secret)
+# 
+# # Creating dataframe to store information
+# spotify_id <- data.frame()
+# # Looping through each artist in the popular_artists dataframe
+# for (artist in popular_artists$artist_cm){
+#   q <- artist
+#   print(q)
+#   
+#   result <- search_spotify(
+#     q,
+#     type = "artist",
+#     market = NULL,
+#     limit = 1,
+#     offset = 0,
+#     include_external = NULL,
+#     authorization = access_token,
+#     include_meta_info = FALSE
+#   )
+#   
+#   # Creating a new row with the obtained result
+#   new_row <- data.frame(result)
+#   new_row <- cbind(artist_cm = q, new_row)
+#   spotify_id <- rbind(spotify_id, new_row)
+# }
+# 
+# # Selecting the relevant information
+# spotify_id <- spotify_id %>% select(artist_cm, artist_spotify = name, artist_id = id, genres, popularity)
+# 
+# # Checking for different names
+# indices <- which(spotify_id$artist_spotify != spotify_id$artist_cm)
+# 
+# if (length(indices) > 0) {
+#   print(paste("Different name on indices:", indices))
+#   print(paste("1 -", spotify_id$artist_spotify[indices]))
+#   print(paste("2 -", spotify_id$artist_cm[indices]))
+# }
+# 
+# # The differences don't seem relevant, no other measures needed
+# 
+# # Merging the two datasets (most popular artists and spotify IDs)
+# spotify_id_subset <- spotify_id %>% select(artist_cm, artist_spotify, artist_id, artist_popularity = popularity)
+# 
+# popular_artists <- merge(popular_artists, spotify_id_subset, by = "artist_cm")
+# 
+# #Rearranging the columns
+# popular_artists <- popular_artists %>% select(rank,
+#                                                 artist_cm,
+#                                                 artist_spotify,
+#                                                 everything()) %>% arrange(rank)
+# 
+# # Saving the merged dataframe as an RDS file
+# #saveRDS(popular_artists, "./data/popular_artists_cm.rds")
+# 
+# #loading the information
+# popular_artists <- readRDS("./data/popular_artists_cm.rds")
+# 
+# #Getting the top tracks of each artist in the us
+# #Setting the access_token
+# access_token <- get_spotify_access_token(client_id, client_secret)
+# 
+# pop_top_tracks_us <- data.frame()
+# # Looping through each artist in the popular_artists dataframe
+# for (i in 1:nrow(popular_artists)){
+#   id <- popular_artists$artist_id[i]
+#   
+#   # Getting the top tracks of the artist in the US
+#   result <- get_artist_top_tracks(
+#     id,
+#     market = "US",
+#     authorization = access_token,
+#     include_meta_info = FALSE
+#   )
+#   print(popular_artists$artist_spotify[i])
+#   
+#   # Assuming that the main artist of the track is the one that we are looking for
+#   result$artists <- id
+#   
+#   # Including the name of the artist for better readability
+#   result$artist_spotify <- popular_artists$artist_spotify[i]
+#   
+#   # Appending the new rows to the dataframe
+#   new_rows <- result
+#   pop_top_tracks_us <- rbind(pop_top_tracks_us, new_rows)
+# }
+# 
+# #selecting the relevant columns
+# pop_top_tracks_us <- pop_top_tracks_us %>% select(artist_spotify,
+#                                                   artist_id = artists,
+#                                                   track_id = id,
+#                                                   track_name = name,
+#                                                   track_popularity = popularity,
+#                                                   album.release_date,
+#                                                   album.release_date_precision,
+#                                                   )
+# 
+# # Getting audio features for all the top tracks in the US
+# pop_audio_features_us <- data.frame()
+# track_list <- c(NULL)
+# artist_id_list <- c(NULL)
+# artist_list <- c(NULL)
+# 
+# # Looping through each track in the pop_top_tracks_us dataframe
+# for (i in 1:nrow(pop_top_tracks_us)){
+#   
+#   track <- pop_top_tracks_us$track_id[i]
+#   track_list <- c(track_list, track)
+#   artist_id_list <- c(artist_id_list, pop_top_tracks_us$artist_id[i])
+#   artist_list <- c(artist_list, pop_top_tracks_us$artist_spotify[i])
+#   
+#   # If 100 tracks are accumulated or it's the last iteration, get audio features
+#   if (length(track_list) == 100 | i == nrow(pop_top_tracks_us)){
+#     result <- get_track_audio_features(track_list,
+#                                        authorization = access_token)
+#     
+#     # Combining audio features with artist information
+#     new_rows <- cbind(result, artist_id = artist_id_list)
+#     new_rows <- cbind(new_rows, artist_spotify = artist_list)
+#     
+#     # Appending the new rows to the dataframe
+#     pop_audio_features_us <- rbind(pop_audio_features_us, new_rows)
+#     
+#     # Restarting the track list and related vectors
+#     track_list <- c(NULL)
+#     artist_id_list <- c(NULL)
+#     artist_list <- c(NULL)
+#   }
+# }
+# # Renaming the "id" column to "track_id"
+# colnames(pop_audio_features_us)[colnames(pop_audio_features_us) == "id"] <- "track_id"
+# pop_audio_features_us_subset <- pop_audio_features_us %>% select (-artist_spotify)
+# 
+# # Merging the top tracks and the audio features
+# pop_audio_features_us <- merge(pop_top_tracks_us,
+#                                pop_audio_features_us_subset,
+#                                by.x = c("track_id", "artist_id"),
+#                                by.y = c("track_id", "artist_id"))
+# 
+# 
+# # Saving the merged dataframe as an RDS file
+# #saveRDS(pop_audio_features_us, "./data/popular_artists_audio_features.rds")
+```
+
+
+```{r cleaning_environment, include=FALSE, echo = FALSE}
+# # All the data has been retrieved and processed
+# # Whenever needed the data will be directly loaded
+# # Cleaning the environment for better performance
+# 
+# rm(list = ls())
 
 ```
 
-```{r music_brainz_data}
+### **1. Introduction**
+Creating a ranking of the 100 greatest musical artists of all time is an ambitious and highly subjective task. Nevertheless, that is what the Rolling Stones Magazine attempted to achieve in 2010 with the publication of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/).
 
-```
+A decade later, this research endeavors to explore how has the music of these revered artists endured at the close of 2023.The Analysis will then be divided in three steps:
 
-```{r popular artists_data}
-
-```
-
-
-```{r loading_data, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
-audio_features_us <- readRDS("audio_features_us.rds")
-```
+1. **Analyzing Popularity:** Evaluate ranked artists' popularity on Spotify at the end of 2023 and investigate correlations between ranking position, current popularity, and Spotify track popularity.
+2. **Time Impact of Releases:** Examine the impact of older and newer releases on track and artist popularity, considering the artist's status, assessing if they are active, performing, or deceased.
+3. **Audio Features Analysis:** Compare audio features of top tracks of today's most popular artists, with those from the Rolling Stones ranking.
 
 
-```{r processing_data, include=FALSE}
+#### **2. Data**
+
+Various data sources were used to explore the popularity of the 100 Rolling Stones ranked artists. This involved web scraping, interaction with the Spotify API, and merging datasets to create a comprehensive analysis dataset.
 
 
-
-```
-
-
-## Introduction
-Creating a ranking of the 100 greatest musical artists of all time is an ambicious task. The subjective analysis of quality and impact of an artist over history is so obvious that even [ChatGPT](https://chat.openai.com/share/65330da6-f475-4d8d-8b80-c2a4dfcbed22) aknowledges the highly individual conotation that any ranking inherently presents. Nevertheless, that is what the Rolling Stones Magazine attempted in 2010 with the publication of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/).
-
-In that context, this research endeavors to explore the enduring impact of these artists and their music at the conclusion of the year 2023. Using data from Spotify, the central focus of this study revolves, first in stablishing if the ranked Rolling Stones' artists are still popular and relevant at the end of 2023 and within that scope, the study aims to decipher the factors that might contribute to the continued engagement with the music of these celebrated artists.
-
-The Analysis will then be divided in three steps:
-1 - Gathering data from Spotify to analyse how popular the ranked artists are at the end of 2023
-2 - Comparing the audio features of the more popular artists ranked and compare them to see how they relate to the less popular ranked artists
-3 - Comparing how the audio features of these artists correlate to the current most popular artists on the global Charts, according to the Global Weekly Spotify Charts
-
-## Data
-The ranking of ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) was collected on the Rolling Stones website and was used as the starting point of the analysis.
-
-The data analysis, on the other hand, was centered on information provided by the [Spotify API](https://developer.spotify.com/documentation/web-api) available information. From this source, information on artists' and tracks' popularity, features and other information was directly retrieved. The API was accessed through the [spotifyr package](https://www.rdocumentation.org/packages/spotifyr/versions/2.2.4).
+##### **2.1 Data Sources**
+1. Sources and Data retrieved via webscarping techniques
+  - ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) - Artists and ranking positions
+  - [MusicBrainz](https://musicbrainz.org/) - Life Span of each of the Ranked Artists
+  - [ChartMaster](https://chartmasters.org/spotify-most-popular-artists/) - List of today's most popular artists.
+2. Other Sources and Data retrieved
+  - [Spotify API](https://developer.spotify.com/documentation/web-api): Utilized the [spotifyr](https://www.rdocumentation.org/packages/spotifyr/versions/2.2.4) package for artist searches, top track retrieval, and audio feature extraction.
 
 
-## Analysis
-We start this analysis by first looking at the popularity index provided by the Spotify API. According to the documentation, this variable is based on the artist's tracks popularity and the index varies between 0 and 100, with 100 being the most popular.
+##### **2.2 Data Processing Steps:**
+The data processing steps involved, in general, retrieving the data via webscraping or via the Spotify API, and treating the datasets in a way to maintain either the artists id, the track id or a combination of both as a primary key to merging the information. After the processing of the information, the data was then, saved as a RDS file that could be later loaded, avoiding unnecessary calls to the API or to the webserver.
 
-It is important to also notice that the popularity of each track in spotify also varies between 0 and 100, with 100 being the most popular. However, its value is based, in the most part, on the total number of plays the track has had and how recent those plays are. Although we cannot assess the specific weight that is being given to the recentness of the plays of a specific track, this measure is aligned with the main goal of this study, that is to identify the artist's relevance at the present moment in time, due to the fact that, according to the documentation, "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past".
+The data processing steps involved, in general, retrieving data via web scraping or the Spotify API, treating datasets to maintain artist or track IDs as primary keys for merging. Key decisions included treating Parliament and Funkadelic as separate bands, using RDS files for data storage, and focusing on the US market for top tracks.
 
-Another limitation of the use of the variable is that it is not updated in real time, and may lag actual opularity by a few days, but since the exact moment of the analysis is not that relevant in the context of this study, this does not harm the usage of this variable.
+Some of the key decisions made during this stage were:
+- The 58th position on the Rolling Stones Ranking is Parliament and Funkadelic, however, despite occupying one position on the ranking, those were two separate band that only recently became one. Therefore, it was decided that they would be treated as separate bands to portray their most famous songs (Parliament and Funkadelic), so the final ranking presents 101 artists.
+- The choice to use an RDS file and not a relation database is centered on the fact that the information from the Spotify API involved dataframes that contained lists, hence, to create a SQL database would require the flattening of the variable, which could involve a more complex work that might not provide better results ahead.
+- The analysis of the songs considers that the main artist of the track is the artist that is being analysed, hence other artists featuring on the same track are disconsidered.
+- The use of the US market for the top tracks rely on the fact that the Rolling Stones Magazine is american, hence, the artists' current popularity would be more meaningful for that country, as for other countries some artists might have never been famous at all.
 
-As for the index having a range of 100, and assuming that the artists' popularity is normally distributed on Spotify, it is fair to state that all artists with a popularity over 50 could be considered "Popular" and those with a popularity lower than that threshold could be seen as "Unpopular".
+This integrated dataset offers a succinct yet comprehensive foundation for exploring patterns and trends in the popularity and characteristics of Spotify's most popular artists and their top tracks in the United States.
 
-On the interactive plot bellow, each dot is an artist of the Rolling Stones Ranking. The artist's Spotify popularity can be addressed on the y axis and the colors display wether the Popularity is bigger than 50 or not. The red line shows the regression line of the two variables.
 
-```{r echo = FALSE, warning=FALSE}
+#### **3. Analysis**
+##### **3.1 Popularity Analysis**
+We start this analysis by first examining the popularity index provided by the Spotify API, which ranges from 0 and 100, with 100 being the most popular, and is based on the each track's popularity. The tracks's popularity also varies between 0 and 100, however, its value is based, in the most part, on the total number of plays the track has had and how recent those plays are. Although we cannot assess the specific weight that is being given to the recentness of the plays of a specific track, the documentation explicitly states that "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past".
+
+Hence, it is fair to consider that spotify's popularity index is aligned with the main goal of this study, to retrieve the artist's relevance at the end of 2023. It is also important to highlight that, since there is no exct dat threshold, the fact that the popularity index is not updated in real time does not limit its usage.
+
+Assuming a normal distribution of popularity among Spotify artists, this study will also classify those with a popularity indx over 50 as "Popular", while those below are "Unpopular". WIth this assumption, the interactive plot below portrais each of the artists according to their position in the Rolling Stones Ranking on the x axis in comparison to their current popularity on Spotify. The colors of the dots displays if the artist is considered Popular or not and the red line show the trend line of the two variables.
+
+```{r echo = FALSE, warning=FALSE, include = FALSE}
+#loading the needed datasets
+artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+
 # Define artist popularity based on a threshold of 50
 artist_info_ranking$is_popular <- ifelse(artist_info_ranking$popularity > 50,
                                          "Popular",
@@ -132,8 +725,8 @@ p1 <- plot_one_data %>%
 p1_int <- ggplotly(p1, tooltip = "text")
 ```
 
-```{css, echo=FALSE, include = FALSE}
-/* Centering the Plotly interactive plot
+```{css, echo=FALSE}
+/* Centering the Plotly interactive plot*/
 
 /*Source: https://stackoverflow.com/questions/47193192/r-markdown-and-plotly-fig-align-not-working-with-html-output*/
 
@@ -145,41 +738,36 @@ p1_int <- ggplotly(p1, tooltip = "text")
 ```
 
 <div class = 'center'>
-```{r, include = TRUE, echo = TRUE, fig.width = 6, fig.height = 3}
-#Teste
+```{r, include = TRUE, echo = FALSE, fig.width = 6, fig.height = 3, fig.align='center'}
+#Plotting the graph
 p1_int
 ```
 </div>
 
-It is clear that the vast majority of the artists on the Ranking can be classified as Popular, and the red regression line also displays the negative correlation between the ranking and the popularity, which is expected since those variables are of opposite direction, meaning that a better ranking presents smaller values and a better popularity is present in bigger values. However, the small inclinement of the regression line also suggests that there is no correlation between the Ranking and the Spotify Popularity, which means that being in a better ranking position on the Rolling Stones Magazine doe not translate to a bigger popularity in 2023.
+It is clear that, the vast majority of artists in the ranking can be considered popular by the end of 2023. In other words, considering that the artist's popularity takes into account the popularity of their songs, the graph above already demonstrates that, most of the songs of the artists on the Rolling Stones ranking has, indeed, endured over time, making them still popular in 2023.
 
-WIth that in mind, we can already stablish that the tracks of most of the artists on the Rolling Stones ranking has, indeed, endured over time, making them still popular in 2023. Now we will try to identify what differentiates the more popular artists of the Ranking from the lesser populars ones.
+The red regression line also displays the negative correlation between the ranking and the popularity, which is expected given the inverse relationship between these variables. Nevertheless, the slight tilt of the regression line indicates a lack of correlation between the Rolling Stones Magazine ranking and Spotify popularity, implying that a better ranking position does not necessarily translate into a better popularity in 2023.
 
-From the plot above and the statistical summary of these artists' popularity, it is possible to notice that the distribution is not heavily skewed, given that the median is close to the mean, the data is farily diversed distributed, without any big outliers that can be spotted based on the visual inspection of the plot.
+From the plot above and the statistical summary of these artists' popularity below, it is also possible to notice that the distribution is not heavily skewed, given that the median is close to the mean, the data is farily diversed distributed, without any big outliers that can be spotted based on the visual inspection of the plot.
 
-However, the data shows a big difference from the minimum (33) to the maximum (90) popularity, which suggests that there might be differences among the artists that could potentially provide bigger or smaller popularities
-
-```{r summary, include=TRUE, align.center = TRUE}
+```{r summary, include=FALSE, align.center = TRUE}
 # Print a message
 cat("Statistical Summary of Spotify Popularity\n\n")
 
 # Print the summary of the 'popularity' variable
 print(summary(artist_info_ranking$popularity))
 ```
-The Spotify API also provides information on the Top 10 Tracks of each artist in a given market. The Rolling Stones is a North American magazine; consequently, it is anticipated that the artists featured in their rankings were, at a certain point in time, quite well-known in the United States. Therefore, a decline in popularity would carry genuine significance. In contrast, in other markets, those same artists might never have achieved fame, rendering their current popularity less meaningful in those regions.
+In more detail, it is also possible to find information from the top 10 tracks of an artist on the Spotify API in a specific market. Given that Rolling Stones is a North American magazine, it is expected that the artists featured in their rankings were, at a certain point in time, quite well-known in the United States. Therefore, a decline in popularity would carry genuine significance. In contrast, in other markets, those same artists might never have achieved fame, rendering their current popularity less meaningful in those regions.
 
-The plot below portrays, in ascending order of popularity on the Spotify platform, the popularity of each top track by the artists featured in the Rolling Stones Ranking, along with the average track popularity and the artist's overall popularity.
+Therefore, using the information from the top tracks in the United States for the artists on the Rolling Stones ranking, the plot below portrays the popularity of each artist's tracks, along with the average track popularity and the artist's overall popularity.
 
-```{r prep_p2, include = FALSE, fig.width=6, fig.height= 15, fig.align='center'}
+```{r prep_p2, include = FALSE, echo = FALSE}
 # Read artist ranking information and top tracks data from RDS files
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
-
-# Define the relative popularity based on the mean popularity threshold
-artist_info_ranking$relative_pop <- ifelse(artist_info_ranking$popularity <= mean(artist_info_ranking$popularity), "Not Popular", "Popular")
+artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+top_tracks_us <- readRDS("./data/top_tracks_us.rds")
 
 # Subset the necessary columns from artist_info_ranking and top_tracks_us
-subset_artist <- artist_info_ranking %>% select(id, artist_spotify, popularity, relative_pop, genres)
+subset_artist <- artist_info_ranking %>% select(id, artist_spotify, popularity, genres)
 
 subset_top_tracks <- top_tracks_us %>% select(artist_id, track_popularity, track_id, track_name, album.release_date)
 
@@ -201,7 +789,7 @@ merged_data_plot2$artist_spotify <- factor(merged_data_plot2$artist_spotify, lev
 ```
 
 
-```{r p2, include = TRUE, fig.width=6, fig.height= 15, fig.align='center'}
+```{r p2, include = TRUE, echo=FALSE, fig.width=6, fig.height= 15, fig.align='center'}
 # Create a ggplot with three sets of points representing different popularity metrics
 p2 <- ggplot(merged_data_plot2, aes(y = artist_spotify)) +
   geom_point(aes(x = track_popularity, color = "Track Popularity"), size = 1.5, alpha = 0.7) +
@@ -234,11 +822,11 @@ p2 <- ggplot(merged_data_plot2, aes(y = artist_spotify)) +
 p2
 ```
 
-It is possible to notice that, for every artist on the Rolling Stones Ranking, the Spotify Popularity is bigger than the Average Top Tracks Popularity of the artist. However, it is also clear that if an artist's top tracks has a bigger Popularity, then, on average, the artist will also present a bigger popularity too, although the average popularity of the top tracks is never greater than the general Artist Popularity.
+From the plot above, it can be seen that, if an artist's top tracks has a bigger average Popularity, then, usually, the artist will also present a bigger popularity too, although the average popularity of the top tracks is never greater than the general Artist Popularity. Another interesting aspect is the presence of outliers on the tracks's popularity variable, specially among the less popular artists. 
 
-An interesting aspect that can also be highlighted is, when analyzing the tracks' popularity is the presence of outliers, specially among the less popular artists. Using the Interquartile Range to identify possible outliers, the table below shows that the average popularity of the artists that have a positive outlier, is below the Average Popularity of all the artists that are part of the Rolling Stones Ranking. This suggests that the most popular artists of today are not the ones with one time hits, but the ones who are able to have multiple musical hits.
+Using the Interquartile Range to identify possible outliers, the table below shows that the average popularity of the artists that have a positive outlier, is below the Average Popularity of all the artists that are part of the Rolling Stones Ranking. This would suggest that the most popular artists of today are not the ones with one time hits, but the ones who are able to have multiple musical hits.
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 #Assign tracks that have positive outliers using IQR
 merged_data_outlier <- merged_data_plot2 %>%
   group_by(artist_spotify) %>%
@@ -266,14 +854,17 @@ outlier_summary <- merged_data_outlier %>%
 kable(outlier_summary, "simple", align = 'c', caption = "Positive Outliers Summary")
 ```
 
-In that sense, another characteristic that can potentially impact the current popularity of an artist would be the time. For instance, if the band does not exist anymore and they are not producing new music, the popularity of the artist might fade over time. In that sense, using the information from the Spotify API, along with data scraped from the [MusicBrainz.org](https://musicbrainz.org/) it is possible to analyse, for each of the top tracks of the artists, if, at the time that the track was released if the artist had already passed away, or if the band or group had been dissolved. 
+##### **3.2 Time and Artist's Status Impact on Popularity**
 
-For the plots below, it is possible to identify the tracks that were released while the artist or group was still active ("Regular Release") and the tracks that were launched after the artist or group were not performing anymore ("Release After End").
-The plots are separated by artist popularity - Popular artists have more than 50 popularity points on Spotify.
+Two other factors that can potentially impact an artist's current popularity are the antiqueness of the release of the song and the status of the artist. Regarding time, one would expect that older songs would fade over time, implying that that the current relevence of a song could heavily rely on the recency of its release. Concerning the artist's status, if the band no longer exists or if the artist had passed away, then they would not be producing new music, which could potentially decrease the artist's popularity over time.
 
-```{r}
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
+To examine these two aspects, top tracks' album release dates from the Spotify API, and the artists' lifespan information from the [MusicBrainz.org](https://musicbrainz.org/) data were combined. This dataset allowed this study to analyse at the time of each top track's release if the if the artist had already passed away or if the band or group had been dissolved.
+
+For the plots below, the tracks that were released while the artist or group was still active are identified as a "Regular Release", while the others are "Releases of Non Active Artist". The plots are divided into Popular and unpopular artists. The axis show the time of the release of each of the top tracks of the artist, and the popularity of the track on the y axis.
+
+```{r, include = FALSE, echo = FALSE}
+artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+top_tracks_us <- readRDS("./data/top_tracks_us.rds")
 mbdata <- readRDS("./data/mbdata.rds")
 
 #Selecting the necessary variables from each of the datasets
@@ -290,7 +881,7 @@ merge_data_p3$Begin <- as.Date(merge_data_p3$Begin)
 merge_data_p3$End <- as.Date(merge_data_p3$End)
 merge_data_p3$album.release_date <- as.Date(merge_data_p3$album.release_date)
 
-merge_data_p3$band_ended <- ifelse(merge_data_p3$End < merge_data_p3$album.release_date, "Artist not Active", "Regular Release")
+merge_data_p3$band_ended <- ifelse(merge_data_p3$End < merge_data_p3$album.release_date, "Release of Non Active Artist", "Regular Release")
 
 merge_data_p3$band_ended[is.na(merge_data_p3$band_ended)] <- "Regular Release"
 
@@ -299,48 +890,17 @@ merge_data_p3$is_pop <- ifelse(merge_data_p3$popularity > 50, "Popular Artist", 
 average_popularity <- merge_data_p3 %>%
   group_by(band_ended) %>%
   summarise(avg_popularity = mean(popularity))
-```
 
-```{r}
 plot_data <- merge_data_p3 %>% filter(!is.na(album.release_date))
-
-# Create the plot
-p <- ggplot(merge_data_p3, aes(x = album.release_date, y = track_popularity, color = is_pop)) +
-  geom_point(size = 3, alpha = 0.7) +
-  #geom_hline(data = average_popularity, aes(yintercept = avg_popularity, color = band_ended), linetype = "dashed", size = 1, show.legend = TRUE) +
-  scale_x_date(date_breaks = "years", date_labels = "%Y") +
-  labs(title = "Track Popularity Over Album Release Dates",
-       x = "Album Release Date",
-       y = "Track Popularity") +
-  theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE)
-
-# Display the plot
-print(p)
-
-p <- ggplot(merge_data_p3, aes(x = album.release_date, y = track_popularity, color = band_ended)) +
-  geom_point(size = 3, alpha = 0.7) +
-  #geom_hline(data = average_popularity, aes(yintercept = avg_popularity, color = band_ended), linetype = "dashed", size = 1, show.legend = TRUE) +
-  scale_x_date(date_breaks = "years", date_labels = "%Y") +
-  labs(title = "Track Popularity Over Album Release Dates",
-       x = "Album Release Date",
-       y = "Track Popularity") +
-  theme_minimal() +
-  geom_smooth(method = "lm", se = FALSE)
-
-# Display the plot
-p
-
-
 ```
 
-```{r fig.width=10, message=FALSE, warning=FALSE, echo = FALSE, include = TRUE}
+```{r fig.width=11, message=FALSE, warning=FALSE, echo = FALSE, include = TRUE}
 # Create the plot for band_ended facet
 p2 <- ggplot(plot_data %>% filter(is_pop == "Popular Artist"), aes(x = album.release_date, y = track_popularity, color = band_ended)) +
   geom_point(size = 3, alpha = 0.7) +
   scale_x_date(date_breaks = "5 years", date_labels = "%Y", limits = c(as.Date("1958-01-01"), as.Date("2023-12-12") )) +
   labs(title = "Track Popularity Over Album Release Dates",
-       subtitle = "For 'Popular' Artists",
+       subtitle = "'Popular' Artists",
        x = "Album Release Date",
        y = "Track Popularity",
        color = "") +
@@ -348,6 +908,7 @@ p2 <- ggplot(plot_data %>% filter(is_pop == "Popular Artist"), aes(x = album.rel
   ylim(0,100) +
   geom_smooth(method = "lm", se = FALSE) +
   theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(linetype = "dashed"),
         panel.grid.major.y = element_line(linetype = "dashed"),
@@ -359,7 +920,7 @@ p3 <- ggplot(plot_data %>% filter(is_pop != "Popular Artist"), aes(x = album.rel
   geom_point(size = 3, alpha = 0.7) +
   scale_x_date(date_breaks = "5 years", date_labels = "%Y", limits = c(as.Date("1958-01-01"), as.Date("2023-12-12") )) +
   labs(title = "Track Popularity Over Album Release Dates",
-       subtitle = "For 'Unpopular' Artists",
+       subtitle = "'Unpopular' Artists",
        x = "Album Release Date",
        y = "Track Popularity",
        color = "") +
@@ -368,6 +929,7 @@ p3 <- ggplot(plot_data %>% filter(is_pop != "Popular Artist"), aes(x = album.rel
   #xlim(as.Date("1960-01-01"), NA) +
   geom_smooth(method = "lm", se = FALSE)+
   theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(linetype = "dashed"),
         panel.grid.major.y = element_line(linetype = "dashed"),
@@ -377,26 +939,25 @@ p3 <- ggplot(plot_data %>% filter(is_pop != "Popular Artist"), aes(x = album.rel
 
 # Display the plots side by side
 library(gridExtra)
-grid.arrange(p3, p2, ncol = 2)
+grid.arrange(p2, p3, ncol = 2)
 
 ```
 
+The first noticeable aspect of the plots is the concentration of songs released prior to 1995, but this is expected given that most of the artists in the Rolling Stones Ranking are historical figures.
 
-The first thing that can be seen in the plots is the concentration of songs released prior to 1995, but this expected given that most of the artists in the Rolling Stones Ranking are historial figures.
+For the first plot, the regression lines are close to parallel to the x axis, which would indicate that no correlation can be found, hence no major conclusions can be made.
 
-For the popular artists, this change is not so clear on the regression lines, so no major conclusions can be made from that.
+The second graph, on the other hand, displays more relevant correlation lines, indicating a connection between song release time and track popularity. However, the opposing directions of the lines suggest that more recent releases for non-active artists improve their popularity, while having the opposite effect for active artists. Hence, one possible find is that the end of the band or group could help improve the popularity of the artist over time. Perhaps, this is due to the fact that regular releases can be "New Tracks" while others would be relaunches of old time successes that could have a "guaranteed" better performance. Surely, no causality claims can be made, but this conclusion is also aligned with the previous find that the popular artists are the ones that have multiple hits, and not the ones with just one big hit.
 
-Analysing the left side graph it is also clear the correlation of the moment of the release of the song and the status of the band. In that context, the Unpopular artists may be the ones that remained active but never achieved the same success of the past, whereas the relaunch of old hits is more likely to improve the popularity.
+##### 3.3 Audio Feture Analysis
 
-In that case, one interesting suggestion is that the end of the band or group, could help improve the popularity of the artist over time, maybe because Regular Released Tracks are "New Tracks" while tracks released After the End of the band are relaunches of old time successes that could have a "guarantee" better performance.It is also important to recall that the artists' popularity is derived from their music popularity, hence, the dots plotted on the graphs above can be seen as the cause of a lower popularity, and not that the smaller popularity may cause the track to be unpopular.
+To conclude this study, the audio features of the tracks are then analysed. Are the successes of today different from the songs of the ranked Artists? To answer, first we complement the dataset of artists based on the ChartMasters' ranking of the 50 most popular artists on Spotify (as of 29/12/2023),then use the Spotify API to gather audio features information for the the top tracks of the Most Popular Artists on Spotify (per ChartMasters), the Popular Artists on the Rolling Stones Ranking and the Unpopular Rolling Stones Ranking Artists. The plots below show the different density distributions of each of the Audio Features, and the colors represent each of the artists popularity category.
 
-To finish, this study, we analyse the audio features of the tracks. Were the old songs, inherently different from the new hits? Does the song in itself makes a difference to the performance of the artist?
-
-```{r, fig.height=20}
+```{r, fig.height=20, include=FALSE, echo=FALSE}
 # Merge the dataframes based on artist_spotify
-artist_info_ranking <- readRDS("artist_info_ranking.rds")
-top_tracks_us <- readRDS("top_tracks_us.rds")
-audio_features_us <- readRDS("audio_features_us.rds")
+artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
+top_tracks_us <- readRDS("./data/top_tracks_us.rds")
+audio_features_us <- readRDS("./data/audio_features_us.rds")
 
 #First we need to merge the artist_info_ranking and the audio_feature_us to determine the popular and non popular artists
 artist_info_ranking_subset <- artist_info_ranking %>% select(artist_id = id, popularity)
@@ -407,7 +968,7 @@ audio_features_us_merged <- merge(audio_features_us, artist_info_ranking_subset,
 audio_features_us_merged$is_pop <- ifelse(audio_features_us_merged$popularity > 50, "Popular", "Unpopular")
 
 #Importing the data from the popular artists of 2023 audio features
-popular_art_aud_feat <- readRDS("popular_artists_audio_features.rds")
+popular_art_aud_feat <- readRDS("./data/popular_artists_audio_features.rds")
 #Creating a column to indicate that these are the most popular artists
 popular_art_aud_feat$is_pop <- "Most Popular Today"
 
@@ -445,28 +1006,7 @@ comparison_cols <- c("danceability",
                  "tempo")
 ```
 
-
-```{r fig.height=20, fig.width = 10}
-# Create side-by-side box plots in a grid with 3 columns
-plots <- lapply(comparison_cols, function(col) {
-  ggplot(audio_feature_plot_data, aes(x = is_pop, y = get(col), fill = is_pop)) +
-    geom_boxplot() +
-    labs(title = paste(col),
-         x = "Popularity",
-         y = col) +
-    theme_minimal() +
-    theme(legend.position = "none")  # Remove legend for clarity
-})
-
-# Arrange plots in a grid with 3 columns
-grid_plots <- wrap_plots(plots, ncol = 5)
-
-# Display the grid of plots
-print(grid_plots)
-```
-
-
-```{r fig.height=15, fig.width = 8}
+```{r fig.height=10, fig.width = 10, include=TRUE, echo=FALSE}
 custom_colors <- c("#1F78B4", "#FF7F00", "#33A02C")
 
 #Plotting based on artist popularity
@@ -474,11 +1014,12 @@ plots <- lapply(comparison_cols, function(col) {
   ggplot(audio_feature_plot_data, aes(x = get(col), fill = is_pop)) +
     geom_density(alpha = 0.3) +
     scale_fill_manual(values = custom_colors) +
-    labs(title = paste("Density Plot of", col),
+    labs(title = paste("Density Plot of", toTitleCase(as.character(col))),
          x = col,
          fill = "Artist Popularity") +
     theme_minimal()+
-    theme(legend.position = "bottom")
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5))
 })
 # Arrange plots in a grid with 3 columns
 grid_plots <- wrap_plots(plots, ncol = 2)
@@ -486,203 +1027,20 @@ grid_plots <- wrap_plots(plots, ncol = 2)
 # Display the grid of plots
 print(grid_plots)
 ```
+Due to the limitation of words in this study, this analysis will focus on the features that present significant differences among the three categories of artists. For more information on each audio feature, refer to the [Spotify API Documentation](https://developer.spotify.com/documentation/web-api/reference/get-several-audio-features).
+
+Regarding the plots, some differences can be highlighted, especially in the danceability, energy, loudness, accousticness, liveness and valence features. In summary, when compared to the Rolling Stones' artists, the most successfull musics of today present a higher danceability (around 0.75 energy level), they are quieter, less accoustic, are released in the studio version (lower liveness) and present a lower valence. It is also noteworthy that, for the energy, loudness, accousticness and liveness features, the popular artists on the Top 100 Ranking are more closely aligned to the distribution of the most popular artists of today. This suggests that, indeed, the audio features of the song may have an impact on the enduring of the tracks and of the artists.
+
+The difference in the Valence feature is also interesting to highlight. According to Spotify, this feature portrays the overall positiveness of the song, whereas tracks with low valence sound more negative (e.g. sad, depressed, angry). This study does not have any evidence, but further analysis could investigate the relation of this with broader societal issues over time.
+
+##### 3.4 Conclusion
+
+In conclusion, this study aimed to analyse the endurance of the 100 best artists of all time according to the Rolling Stones magazine. The research found that, the majority of the artists on the ranking and their songs, indeed have succeeded on their battle against time, and are still popular at the end of 2023. To remain popular, the analysis suggests that the artists and songs that managed to better endure are the ones who are able to have multiple musical hits, or who have re-realeased old successes. The more popular artists also are the ones of songs with a higher danceability, the right amount of energy, less intense (quieter), not in an accoustic or live version and with a lower valence. This study focused on correlation and can not make any assumptions on causality, therefore, further studies could contribute to this conclusions by analysing eventual causality of these aspects and verifying if the conclusions remain consistent when other countries are taken into account.
 
 
+## Appendix: All code in this assignment
 
-
-
-```{r, fig.height= 20, fig.width=10, eval = FALSE}
-# Create scatter plots in a grid with 3 columns
-plots <- lapply(comparison_cols, function(col) {
-  ggplot(audio_feature_plot_data, aes(x = track_popularity, y = get(col), color = artist_popularity)) +
-    geom_point(alpha = 0.3) +
-    labs(title = paste(col),
-         #x = "Track Popularity",
-         #y = col,
-         #color = "Relative Popularity") +
-    )+
-    theme_minimal()+
-    theme(legend.position = "bottom")
-})
-
-# Arrange plots in a grid with 3 columns
-grid_plots <- wrap_plots(plots, ncol = 3)
-
-# Display the grid of plots
-print(grid_plots)
-
-
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE} 
+# this chunk generates the complete code appendix. 
+# eval=FALSE tells R not to run (``evaluate'') the code here (it was already run before).
 ```
-
-```{r, fig.height= 20, fig.width=10, eval = FALSE}
-library(ggplot2)
-library(hexbin)
-
-# Create scatter plots with hexagonal binning
-plots <- lapply(scatter_cols, function(col) {
-  ggplot(merged_df, aes(x = track_popularity, y = get(col))) +
-    geom_hex(bins = 30) +
-    scale_fill_gradient(low = "blue", high = "red") +  # Specify colors
-    labs(title = paste(col),
-         x = "Track Popularity",
-         y = col,
-         color = "Artist Popularity") +
-    theme_minimal()
-})
-
-# Arrange plots in a grid with 3 columns
-grid_plots <- wrap_plots(plots, ncol = 3)
-
-# Display the grid of plots
-print(grid_plots)
-
-
-```
-
-
-```{r, fig.height= 20, fig.width=10, eval = FALSE}
-library(ggplot2)
-library(hexbin)
-merged_df$is_track_pop <- ifelse(merged_df$track_popularity > 50, "Popular Song", "Unpopular Song")
-colnames(merged_df)
-ggplot(merged_df, aes(x = track_popularity, y = get(col), group = relative_pop, fill = relative_pop)) +
-    geom_density2d() +
-    #scale_fill_gradient(low = "blue", high = "red") +  # Specify colors
-    labs(title = paste(col),
-         x = "Track Popularity",
-         y = col,
-         color = "Artist Popularity") +
-    theme_minimal()
-
-library(RColorBrewer)
-
-# Define a custom color palette
-custom_colors <- c("#1F78B4", "#FF7F00")
-
-#Plotting based on track popularity
-plots <- lapply(scatter_cols, function(col) {
-  ggplot(merged_df, aes(x = get(col), fill = is_track_pop)) +
-    geom_density(alpha = 0.3) +
-    scale_fill_manual(values = custom_colors) +
-    labs(title = paste("Density Plot of", col),
-         x = col,
-         fill = "Relative Popularity") +
-    theme_minimal()+
-    theme(legend.position = "bottom")
-})
-
-
-
-
-# Create scatter plots with hexagonal binning
-plots <- lapply(scatter_cols, function(col) {
-  ggplot(merged_df, aes(x = track_popularity, y = get(col))) +
-    geom_hex(bins = 30) +
-    scale_fill_gradient(low = "blue", high = "red") +  # Specify colors
-    labs(title = paste(col),
-         x = "Track Popularity",
-         y = col,
-         color = "Artist Popularity") +
-    theme_minimal()+
-    theme(legend.position = "bottom")
-})
-
-# Arrange plots in a grid with 3 columns
-grid_plots <- wrap_plots(plots, ncol = 3)
-
-# Display the grid of plots
-print(grid_plots)
-
-
-```
-
-```{r, eval = FALSE}
-# Subset the data frame to include only the relevant columns
-subset_df <- merged_df[c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo", "artist_popularity")]
-
-# Assuming your model was created using lm function
-model <- lm(artist_popularity.x ~ ., data = subset_df)
-
-# Assuming diagnostic_plots function is defined as before
-diagnostic_plots <- function(model) {
-  # ... (unchanged code)
-}
-
-# Call the function with your regression model
-diagnostic_plots(model)
-
-
-```
-```{r, eval = FALSE}
-# Install and load necessary packages (if not already installed)
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-  install.packages("ggplot2")
-}
-if (!requireNamespace("cowplot", quietly = TRUE)) {
-  install.packages("cowplot")
-}
-library(ggplot2)
-library(cowplot)
-
-# Define diagnostic_plots function
-diagnostic_plots <- function(data, dependent_var, independent_vars) {
-  # Fit a multiple linear regression model
-  model <- lm(paste(dependent_var, "~", paste(independent_vars, collapse = " + ")), data = data)
-
-  # Residuals vs Fitted
-  plot1 <- ggplot(model, aes(fitted.values, residuals)) +
-    geom_point() +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuals vs Fitted", x = "Fitted values", y = "Residuals")
-
-  # Normal Q-Q Plot
-  plot2 <- ggplot(model, aes(sample = residuals)) +
-    stat_qq() +
-    stat_qq_line() +
-    labs(title = "Normal Q-Q Plot", x = "Theoretical Quantiles", y = "Sample Quantiles")
-
-  # Scale-Location (Square Root of Standardized Residuals) vs Fitted
-  plot3 <- ggplot(model, aes(fitted.values, sqrt(abs(residuals)))) +
-    geom_point() +
-    geom_smooth(se = FALSE, method = "loess", formula = y ~ x) +
-    labs(title = "Scale-Location Plot", x = "Fitted values", y = "Square Root of Standardized Residuals")
-
-  # Residuals vs Leverage
-  plot4 <- ggplot(model, aes(hatvalues, residuals)) +
-    geom_point() +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-    labs(title = "Residuals vs Leverage", x = "Leverage", y = "Residuals")
-
-  # Combine plots into a grid
-  plot_grid(plot1, plot2, plot3, plot4, ncol = 2, labels = "AUTO")
-}
-
-# Call the function with your data frame and variable names
-diagnostic_plots(subset_df, "artist_popularity", c("danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo"))
-
-
-```
-
-Introduction: A brief introduction to the research question and your approach to answering it. You do not need to cite any literature or write a literature review.
-
-Data: A discussion of the data sources you used, how you accessed them, how you processed the data, the structure of your final analysis dataset(s), and so on.
-
-Analysis: A presentation of your analysis, including figures/graphs/maps, and a discussion of your findings. In general, we do not expect you to conduct or interpret any formal statistical tests, though you may do this if you wish. Remember that your discussion should translate your specific analysis and results back to the level of the research question.
-
-Code Appendix: As in the previous assignments, all code that you do not wish to directly include in your report should be included in a code appendix at the end of the document.
-
-- Parliament and Funkadelic are two bands that only recently have been merged to one, so the decision was made to add both of them to the list of artists, with the same ranking
-- 
-
-#Next steps
-# 1 - After I finish tidying the artist_id_pop data I add the id to the previous rs_ranking
-# Create a relational SQL databse to get the information using the spotify id as a key
-# 2 - Get top tracks for each artist
-# 3 - Get audio features for every track
-# 4 - Find similarities and graphs to show how the artists popularity and genres and audiofeatures relate
-# 5 - Get the top 50 global artists in Spotify
-# 6 - See how the top 50 audio features is related to the artists in the ranking
-# 7 - Argue that the popularity is a controversial thing and can change from country to country
-# 8 - The ranking is 100% anglophone (plot a map of the artists origin)
-# 9 - Get the end date of each band or artist from the other website to see if the end date is related to the popularity
-# 10 - Discuss the results
