@@ -632,52 +632,29 @@ library(patchwork)
 ```
 
 ### **1. Introduction**
-Creating a ranking of the 100 greatest musical artists of all time is an ambitious and highly subjective task. Nevertheless, that is what the Rolling Stones Magazine attempted to achieve in 2010 with the publication of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/).
-
-A decade later, this research endeavors to explore how has the music of these revered artists endured at the close of 2023.The Analysis will then be divided in three steps:
-
-1. **Analyzing Popularity:** Evaluate ranked artists' popularity on Spotify at the end of 2023 and investigate correlations between ranking position, current popularity, and Spotify track popularity.
-2. **Time Impact of Releases:** Examine the impact of older and newer releases on track and artist popularity, considering the artist's status, assessing if they are active, performing, or deceased.
-3. **Audio Features Analysis:** Compare audio features of top tracks of today's most popular artists, with those from the Rolling Stones ranking.
-
+This research endeavors to explore how has the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
 
 #### **2. Data**
+Various data sources were used to explore this topic:
 
-Various data sources were used to explore the popularity of the 100 Rolling Stones ranked artists. This involved web scraping, interaction with the Spotify API, and merging datasets to create a comprehensive analysis dataset.
-
-
-##### **2.1 Data Sources**
-1. Sources and Data retrieved via webscarping techniques
+1. Data retrieved via webscarping
   - ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) - Artists and ranking positions
   - [MusicBrainz](https://musicbrainz.org/) - Life Span of each of the Ranked Artists
   - [ChartMaster](https://chartmasters.org/spotify-most-popular-artists/) - List of today's most popular artists.
-2. Other Sources and Data retrieved
+2. Other Sources
   - [Spotify API](https://developer.spotify.com/documentation/web-api): Utilized the [spotifyr](https://www.rdocumentation.org/packages/spotifyr/versions/2.2.4) package for artist searches, top track retrieval, and audio feature extraction.
 
+The data processing involved retrieving the data, treating the datasets maintaining either the artists id, the track id or a combination of both as a primary key. After the processing of the information the data was saved as a RDS file.
 
-##### **2.2 Data Processing Steps:**
-The data processing steps involved, in general, retrieving the data via webscraping or via the Spotify API, and treating the datasets in a way to maintain either the artists id, the track id or a combination of both as a primary key to merging the information. After the processing of the information, the data was then, saved as a RDS file that could be later loaded, avoiding unnecessary calls to the API or to the webserver.
-
-The data processing steps involved, in general, retrieving data via web scraping or the Spotify API, treating datasets to maintain artist or track IDs as primary keys for merging. Key decisions included treating Parliament and Funkadelic as separate bands, using RDS files for data storage, and focusing on the US market for top tracks.
-
-Some of the key decisions made during this stage were:
-- The 58th position on the Rolling Stones Ranking is Parliament and Funkadelic, however, despite occupying one position on the ranking, those were two separate band that only recently became one. Therefore, it was decided that they would be treated as separate bands to portray their most famous songs (Parliament and Funkadelic), so the final ranking presents 101 artists.
-- The choice to use an RDS file and not a relation database is centered on the fact that the information from the Spotify API involved dataframes that contained lists, hence, to create a SQL database would require the flattening of the variable, which could involve a more complex work that might not provide better results ahead.
-- The analysis of the songs considers that the main artist of the track is the artist that is being analysed, hence other artists featuring on the same track are disconsidered.
-- The use of the US market for the top tracks rely on the fact that the Rolling Stones Magazine is american, hence, the artists' current popularity would be more meaningful for that country, as for other countries some artists might have never been famous at all.
-
-This integrated dataset offers a succinct yet comprehensive foundation for exploring patterns and trends in the popularity and characteristics of Spotify's most popular artists and their top tracks in the United States.
-
+Key decisions during this stage included treating Parliament and Funkadelic as separate bands due to their recent merger, resulting in a final ranking of 101 artists. Additionally, the decision to use an RDS file instead of a relational database was based on the complexity of flattening variables within dataframes from the Spotify API, making it a more efficient choice for this analysis.
 
 #### **3. Analysis**
 ##### **3.1 Popularity Analysis**
-We start this analysis by first examining the popularity index provided by the Spotify API, which ranges from 0 and 100, with 100 being the most popular, and is based on the each track's popularity. The tracks's popularity also varies between 0 and 100, however, its value is based, in the most part, on the total number of plays the track has had and how recent those plays are. Although we cannot assess the specific weight that is being given to the recentness of the plays of a specific track, the documentation explicitly states that "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past".
+Spotify's popularity index will be used to assess the endurance of the RS ranked artists' music. This index for an artist is based on the each track's popularity, which, according to the Spotify documentation, has a high weight on the current popularity, since "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past". Given the range of 0 to 100, and assuming a normal distribution of popularity among Spotify artists, this study will classify those with a popularity index over 50 as "Popular", while those below are "Unpopular".
 
-Hence, it is fair to consider that spotify's popularity index is aligned with the main goal of this study, to retrieve the artist's relevance at the end of 2023. It is also important to highlight that, since there is no exct dat threshold, the fact that the popularity index is not updated in real time does not limit its usage.
+The interactive plot below shows each artist's RS Ranking position versus their current Spotify popularity. Dot colors indicate popularity, and the red line represents the trend.
 
-Assuming a normal distribution of popularity among Spotify artists, this study will also classify those with a popularity indx over 50 as "Popular", while those below are "Unpopular". WIth this assumption, the interactive plot below portrais each of the artists according to their position in the Rolling Stones Ranking on the x axis in comparison to their current popularity on Spotify. The colors of the dots displays if the artist is considered Popular or not and the red line show the trend line of the two variables.
-
-```{r echo = FALSE, warning=FALSE, include = FALSE}
+```{r warning=FALSE, include = FALSE, echo = FALSE}
 #loading the needed datasets
 artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
 
@@ -705,7 +682,6 @@ plot_one_data <- artist_info_ranking %>%
 p1 <- plot_one_data %>%
   ggplot() +
   geom_point(aes(x = ranking, y = popularity, color = is_popular, text = text), size = 3, alpha = 0.5) +
-  geom_line(stat = "smooth", method = lm, aes(x = ranking, y = popularity), formula = 'y ~ x', color = "red", alpha = 0.5) +
   theme_minimal() +
   labs(title = "Rolling Stones Ranking x Spotify Popularity",
        color = NULL,
@@ -724,6 +700,7 @@ p1 <- plot_one_data %>%
 # Convert ggplot plot to plotly for interactivity with tooltips
 p1_int <- ggplotly(p1, tooltip = "text")
 ```
+
 
 ```{css, echo=FALSE}
 /* Centering the Plotly interactive plot*/
@@ -744,123 +721,13 @@ p1_int
 ```
 </div>
 
-It is clear that, the vast majority of artists in the ranking can be considered popular by the end of 2023. In other words, considering that the artist's popularity takes into account the popularity of their songs, the graph above already demonstrates that, most of the songs of the artists on the Rolling Stones ranking has, indeed, endured over time, making them still popular in 2023.
-
-The red regression line also displays the negative correlation between the ranking and the popularity, which is expected given the inverse relationship between these variables. Nevertheless, the slight tilt of the regression line indicates a lack of correlation between the Rolling Stones Magazine ranking and Spotify popularity, implying that a better ranking position does not necessarily translate into a better popularity in 2023.
-
-From the plot above and the statistical summary of these artists' popularity below, it is also possible to notice that the distribution is not heavily skewed, given that the median is close to the mean, the data is farily diversed distributed, without any big outliers that can be spotted based on the visual inspection of the plot.
-
-```{r summary, include=FALSE, align.center = TRUE}
-# Print a message
-cat("Statistical Summary of Spotify Popularity\n\n")
-
-# Print the summary of the 'popularity' variable
-print(summary(artist_info_ranking$popularity))
-```
-In more detail, it is also possible to find information from the top 10 tracks of an artist on the Spotify API in a specific market. Given that Rolling Stones is a North American magazine, it is expected that the artists featured in their rankings were, at a certain point in time, quite well-known in the United States. Therefore, a decline in popularity would carry genuine significance. In contrast, in other markets, those same artists might never have achieved fame, rendering their current popularity less meaningful in those regions.
-
-Therefore, using the information from the top tracks in the United States for the artists on the Rolling Stones ranking, the plot below portrays the popularity of each artist's tracks, along with the average track popularity and the artist's overall popularity.
-
-```{r prep_p2, include = FALSE, echo = FALSE}
-# Read artist ranking information and top tracks data from RDS files
-artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
-top_tracks_us <- readRDS("./data/top_tracks_us.rds")
-
-# Subset the necessary columns from artist_info_ranking and top_tracks_us
-subset_artist <- artist_info_ranking %>% select(id, artist_spotify, popularity, genres)
-
-subset_top_tracks <- top_tracks_us %>% select(artist_id, track_popularity, track_id, track_name, album.release_date)
-
-# Merge the two datasets based on artist IDs
-merged_data_plot2 <- merge(subset_artist, subset_top_tracks, by.x = "id", by.y = "artist_id")
-
-# Create mean track popularity data for plotting
-mean_data <- merged_data_plot2 %>%
-  group_by(artist_spotify) %>%
-  summarise(mean_track_popularity = mean(track_popularity))
-
-# Merge mean data with the original data
-merged_data_plot2 <- merge(merged_data_plot2, mean_data, by = "artist_spotify")
-
-# Factoring the artist_spotify for plotting in order of artist popularity
-popularity_order <- artist_info_ranking %>% select(artist_spotify, popularity) %>% arrange(desc(popularity))
-
-merged_data_plot2$artist_spotify <- factor(merged_data_plot2$artist_spotify, levels = popularity_order$artist_spotify)
-```
-
-
-```{r p2, include = TRUE, echo=FALSE, fig.width=6, fig.height= 15, fig.align='center'}
-# Create a ggplot with three sets of points representing different popularity metrics
-p2 <- ggplot(merged_data_plot2, aes(y = artist_spotify)) +
-  geom_point(aes(x = track_popularity, color = "Track Popularity"), size = 1.5, alpha = 0.7) +
-  geom_point(aes(x = popularity, color = "Artist Popularity"), size = 1.5, alpha = 0.7) +
-  geom_point(aes(x = mean_track_popularity, color = "Average Track Popularity"), size = 1.5, alpha = 0.7) +
-  theme_minimal() +
-  labs(title = "Artist and Top Tracks (US) Popularity",
-       y = NULL,
-       x = "Popularity",
-       subtitle = "Artists are in Ascending Popularity Order") +
-  scale_color_manual(
-    values = c("#E63946", "#FBAF4F", "#BFD3C1"),
-    name = NULL
-  ) +
-  theme(axis.text.x = element_text(hjust = 1, vjust = 1),
-        panel.grid = element_line(color = alpha("gray", 0.2), linetype = "solid"),
-        panel.grid.major.x = element_line(linetype = "dashed"),
-        panel.grid.minor.x = element_line(linetype = "dashed"),
-        axis.text.y = element_text(hjust = 1, vjust = 0.5),
-        plot.title = element_text(hjust = 0.5, size = 16),
-        plot.subtitle = element_text(hjust = 0.5, size = 11),
-        legend.position = "top") +
-  geom_vline(xintercept = 0, color = "black", alpha = 0.2) +  # Add vertical line at x = 0
-  scale_x_continuous(breaks = c(0, 25, 50, 75, 100),
-                     expand = c(0, 0),
-                     limits = c(-1, 101),
-                     sec.axis = sec_axis(~., name = "Popularity"))
-  
-# Display the plot
-p2
-```
-
-From the plot above, it can be seen that, if an artist's top tracks has a bigger average Popularity, then, usually, the artist will also present a bigger popularity too, although the average popularity of the top tracks is never greater than the general Artist Popularity. Another interesting aspect is the presence of outliers on the tracks's popularity variable, specially among the less popular artists. 
-
-Using the Interquartile Range to identify possible outliers, the table below shows that the average popularity of the artists that have a positive outlier, is below the Average Popularity of all the artists that are part of the Rolling Stones Ranking. This would suggest that the most popular artists of today are not the ones with one time hits, but the ones who are able to have multiple musical hits.
-
-```{r, include = TRUE, echo = FALSE}
-#Assign tracks that have positive outliers using IQR
-merged_data_outlier <- merged_data_plot2 %>%
-  group_by(artist_spotify) %>%
-    mutate(
-    Q1 = quantile(track_popularity, 0.25),
-    Q3 = quantile(track_popularity, 0.75),
-    IQR_value = Q3 - Q1,
-    upper_bound = Q3 + 1.5 * IQR_value,
-    outliers = ifelse(track_popularity > upper_bound, "Positive Outlier", "Not Outlier"),
-    mean_popularity = mean(track_popularity),
-    diff_to_mean = track_popularity - mean_popularity
-  ) %>%
-  ungroup()
-
-outlier_summary <- merged_data_outlier %>%
-  filter(outliers == "Positive Outlier") %>%
-  summarise("Total Positive Outliers" = n(), 
-            "Unique Artists With Positive Outliers" = length(unique(artist_spotify)),
-             "Mean Artist Popularity" = mean(popularity),
-            "Median Artist Popularity" = median(popularity),
-            "Mean Difference to Average Track Popularity" = mean(diff_to_mean),
-            "Max Difference to Average Track Popularity" = max(diff_to_mean))
-
-# Convert the summary table to a nicely formatted table
-kable(outlier_summary, "simple", align = 'c', caption = "Positive Outliers Summary")
-```
+From the plot above, it is clear that, the vast majority of artists in the RS ranking and, consequently theirs songs, have endured and can be considered popular by the end of 2023.
 
 ##### **3.2 Time and Artist's Status Impact on Popularity**
 
-Two other factors that can potentially impact an artist's current popularity are the antiqueness of the release of the song and the status of the artist. Regarding time, one would expect that older songs would fade over time, implying that that the current relevence of a song could heavily rely on the recency of its release. Concerning the artist's status, if the band no longer exists or if the artist had passed away, then they would not be producing new music, which could potentially decrease the artist's popularity over time.
+The artist's current popularity can also be influenced by the song's release date and the artist's status. Older songs may lose relevance, and the artist's ongoing activity can impact popularity.
 
-To examine these two aspects, top tracks' album release dates from the Spotify API, and the artists' lifespan information from the [MusicBrainz.org](https://musicbrainz.org/) data were combined. This dataset allowed this study to analyse at the time of each top track's release if the if the artist had already passed away or if the band or group had been dissolved.
-
-For the plots below, the tracks that were released while the artist or group was still active are identified as a "Regular Release", while the others are "Releases of Non Active Artist". The plots are divided into Popular and unpopular artists. The axis show the time of the release of each of the top tracks of the artist, and the popularity of the track on the y axis.
+Combining Spotify API album release dates with artist lifespan data from [MusicBrainz.org](https://musicbrainz.org/), this study categorizes the United States top tracks of the artists as "Regular Release" if the artist was active and "Releases of Non-Active Artist" otherwise. Plots below for popular and unpopular artists show track release time versus popularity.
 
 ```{r, include = FALSE, echo = FALSE}
 artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
@@ -943,15 +810,14 @@ grid.arrange(p2, p3, ncol = 2)
 
 ```
 
-The first noticeable aspect of the plots is the concentration of songs released prior to 1995, but this is expected given that most of the artists in the Rolling Stones Ranking are historical figures.
+Notably, pre-1995 releases dominate, which is expected given the historical figures in the RS ranking.
 
-For the first plot, the regression lines are close to parallel to the x axis, which would indicate that no correlation can be found, hence no major conclusions can be made.
+The first plot does not show significant correlation. The second graph, however, suggests a connection between release time and popularity. Interestingly, recent releases boost non-active artists’ popularity but reduce it for active artists. Without making any causality claims, this suggests that an artist’s end may enhance long-term popularity, by having multiple hits while active, or by the relaunching of old hits during inactive periods.
 
-The second graph, on the other hand, displays more relevant correlation lines, indicating a connection between song release time and track popularity. However, the opposing directions of the lines suggest that more recent releases for non-active artists improve their popularity, while having the opposite effect for active artists. Hence, one possible find is that the end of the band or group could help improve the popularity of the artist over time. Perhaps, this is due to the fact that regular releases can be "New Tracks" while others would be relaunches of old time successes that could have a "guaranteed" better performance. Surely, no causality claims can be made, but this conclusion is also aligned with the previous find that the popular artists are the ones that have multiple hits, and not the ones with just one big hit.
 
-##### 3.3 Audio Feture Analysis
+##### **3.3 Audio Feature Analysis**
 
-To conclude this study, the audio features of the tracks are then analysed. Are the successes of today different from the songs of the ranked Artists? To answer, first we complement the dataset of artists based on the ChartMasters' ranking of the 50 most popular artists on Spotify (as of 29/12/2023),then use the Spotify API to gather audio features information for the the top tracks of the Most Popular Artists on Spotify (per ChartMasters), the Popular Artists on the Rolling Stones Ranking and the Unpopular Rolling Stones Ranking Artists. The plots below show the different density distributions of each of the Audio Features, and the colors represent each of the artists popularity category.
+NExt, this study explores audio features in the US top tracks of today's  [50 most popular artists](https://chartmasters.org/spotify-most-popular-artists/) versus RS ranked artists. Plots below display density distributions of tracks' Audio Features, colored by artists' popularity.
 
 ```{r, fig.height=20, include=FALSE, echo=FALSE}
 # Merge the dataframes based on artist_spotify
@@ -1027,15 +893,17 @@ grid_plots <- wrap_plots(plots, ncol = 2)
 # Display the grid of plots
 print(grid_plots)
 ```
-Due to the limitation of words in this study, this analysis will focus on the features that present significant differences among the three categories of artists. For more information on each audio feature, refer to the [Spotify API Documentation](https://developer.spotify.com/documentation/web-api/reference/get-several-audio-features).
 
-Regarding the plots, some differences can be highlighted, especially in the danceability, energy, loudness, accousticness, liveness and valence features. In summary, when compared to the Rolling Stones' artists, the most successfull musics of today present a higher danceability (around 0.75 energy level), they are quieter, less accoustic, are released in the studio version (lower liveness) and present a lower valence. It is also noteworthy that, for the energy, loudness, accousticness and liveness features, the popular artists on the Top 100 Ranking are more closely aligned to the distribution of the most popular artists of today. This suggests that, indeed, the audio features of the song may have an impact on the enduring of the tracks and of the artists.
+Due to word limit constraints, the discussion will focus on features with significant differences, excluding concepts.
 
-The difference in the Valence feature is also interesting to highlight. According to Spotify, this feature portrays the overall positiveness of the song, whereas tracks with low valence sound more negative (e.g. sad, depressed, angry). This study does not have any evidence, but further analysis could investigate the relation of this with broader societal issues over time.
+In summary, today's most successful music exhibits higher danceability (around 0.75 energy level), is quieter, less acoustic, released in the studio version (lower liveness), and with lower valence. Notably, Popular Top 100 artists align more with today's popular artists in energy, loudness, acousticness, and liveness, suggesting audio features impact track and artist endurance.
 
-##### 3.4 Conclusion
+The difference in the Valence feature is also interesting. According to Spotify, this feature reflects overall positiveness of the song, whereas low valence indicates a more negative tone (e.g. sad, depressed, angry). Further analysis could investigate the relationship of this change with broader societal issues over time.
 
-In conclusion, this study aimed to analyse the endurance of the 100 best artists of all time according to the Rolling Stones magazine. The research found that, the majority of the artists on the ranking and their songs, indeed have succeeded on their battle against time, and are still popular at the end of 2023. To remain popular, the analysis suggests that the artists and songs that managed to better endure are the ones who are able to have multiple musical hits, or who have re-realeased old successes. The more popular artists also are the ones of songs with a higher danceability, the right amount of energy, less intense (quieter), not in an accoustic or live version and with a lower valence. This study focused on correlation and can not make any assumptions on causality, therefore, further studies could contribute to this conclusions by analysing eventual causality of these aspects and verifying if the conclusions remain consistent when other countries are taken into account.
+
+##### **3.4 Conclusion**
+
+This study analyzed how the music from the artists of the top 100 Rolling Stones has endured. Results show that the majority of the artists and their songs, have succeeded on their battle against time. The number of hits, relaunching old successes, and song audio features may have an impact on current popularity. Further studies can explore causality and test these findings globally.
 
 
 ## Appendix: All code in this assignment
