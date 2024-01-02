@@ -2,7 +2,6 @@
 title: "Final Assignment"
 output: html_document
 date: "2023-12-26"
-github repository: 'https://github.com/editor210/MY_472_Final_Assignment'
 ---
 
 ```{r setup, include=FALSE}
@@ -630,6 +629,8 @@ library(patchwork)
 # rm(list = ls())
 
 ```
+
+**Github repository:** 'https://github.com/editor210/MY_472_Final_Assignment'
 
 ### **1. Introduction**
 This research endeavors to explore how has the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
