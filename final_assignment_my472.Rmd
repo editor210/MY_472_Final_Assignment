@@ -24,6 +24,8 @@ library(patchwork)
 
 
 ```{r rs_ranking, include = FALSE, echo = FALSE}
+#The code chunks below are commented out as requested on the Instruction of the Assignment, so that it doesn’t run but it still visible in the code appendix.
+
 # ############### Getting Rolling Stones Ranking Info
 # 
 # #Retrieving the information from the Rolling Stones Ranking
@@ -581,24 +583,24 @@ library(patchwork)
 # 
 # # Looping through each track in the pop_top_tracks_us dataframe
 # for (i in 1:nrow(pop_top_tracks_us)){
-#   
+# 
 #   track <- pop_top_tracks_us$track_id[i]
 #   track_list <- c(track_list, track)
 #   artist_id_list <- c(artist_id_list, pop_top_tracks_us$artist_id[i])
 #   artist_list <- c(artist_list, pop_top_tracks_us$artist_spotify[i])
-#   
+# 
 #   # If 100 tracks are accumulated or it's the last iteration, get audio features
 #   if (length(track_list) == 100 | i == nrow(pop_top_tracks_us)){
 #     result <- get_track_audio_features(track_list,
 #                                        authorization = access_token)
-#     
+# 
 #     # Combining audio features with artist information
 #     new_rows <- cbind(result, artist_id = artist_id_list)
 #     new_rows <- cbind(new_rows, artist_spotify = artist_list)
-#     
+# 
 #     # Appending the new rows to the dataframe
 #     pop_audio_features_us <- rbind(pop_audio_features_us, new_rows)
-#     
+# 
 #     # Restarting the track list and related vectors
 #     track_list <- c(NULL)
 #     artist_id_list <- c(NULL)
@@ -633,27 +635,27 @@ library(patchwork)
 **Github repository:** 'https://github.com/editor210/MY_472_Final_Assignment'
 
 ### **1. Introduction**
-This research endeavors to explore how has the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
+This research endeavors to explore how has the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/), according to Rolling Stones (RS) magazine, endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
 
 #### **2. Data**
 Various data sources were used to explore this topic:
 
-1. Data retrieved via webscarping
+1. Data retrieved via webscraping
   - ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/) - Artists and ranking positions
   - [MusicBrainz](https://musicbrainz.org/) - Life Span of each of the Ranked Artists
   - [ChartMaster](https://chartmasters.org/spotify-most-popular-artists/) - List of today's most popular artists.
 2. Other Sources
-  - [Spotify API](https://developer.spotify.com/documentation/web-api): Utilized the [spotifyr](https://www.rdocumentation.org/packages/spotifyr/versions/2.2.4) package for artist searches, top track retrieval, and audio feature extraction.
+  - [Spotify API](https://developer.spotify.com/documentation/web-api): Utilized the [spotifyr](https://www.rdocumentation.org/packages/spotifyr/versions/2.2.4) package for artist searches, top tracks retrieval, and audio features extraction.
 
 The data processing involved retrieving the data, treating the datasets maintaining either the artists id, the track id or a combination of both as a primary key. After the processing of the information the data was saved as a RDS file.
 
-Key decisions during this stage included treating Parliament and Funkadelic as separate bands due to their recent merger, resulting in a final ranking of 101 artists. Additionally, the decision to use an RDS file instead of a relational database was based on the complexity of flattening variables within dataframes from the Spotify API, making it a more efficient choice for this analysis.
+Key decisions during this stage included treating Parliament and Funkadelic as separate bands due to their recent merger, resulting in a final ranking of 101 artists. Additionally, the decision to use an RDS file, as a more efficient choice, instead of a relational database due to the complexity of flattening variables within dataframes from the Spotify API.
 
 #### **3. Analysis**
 ##### **3.1 Popularity Analysis**
-Spotify's popularity index will be used to assess the endurance of the RS ranked artists' music. This index for an artist is based on the each track's popularity, which, according to the Spotify documentation, has a high weight on the current popularity, since "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past". Given the range of 0 to 100, and assuming a normal distribution of popularity among Spotify artists, this study will classify those with a popularity index over 50 as "Popular", while those below are "Unpopular".
+Spotify's popularity index will be used to assess the endurance of the RS ranked artists' music. This index for an artist is based on each artists' track popularity, which, according to the Spotify documentation, has a high weight on the current popularity, since "songs that are being played a lot now will have a higher popularity than songs that were played a lot in the past". Given the range of 0 to 100, and assuming a normal distribution of popularity among Spotify artists, this study will classify those with a popularity index over 50 as "Popular", while those below are "Unpopular".
 
-The interactive plot below shows each artist's RS Ranking position versus their current Spotify popularity. Dot colors indicate popularity, and the red line represents the trend.
+The interactive plot below shows each artist's RS Ranking position versus their current Spotify popularity. Dot colors indicate popularity.
 
 ```{r warning=FALSE, include = FALSE, echo = FALSE}
 #loading the needed datasets
@@ -726,9 +728,9 @@ From the plot above, it is clear that, the vast majority of artists in the RS ra
 
 ##### **3.2 Time and Artist's Status Impact on Popularity**
 
-The artist's current popularity can also be influenced by the song's release date and the artist's status. Older songs may lose relevance, and the artist's ongoing activity can impact popularity.
+The artist's current popularity can be influenced by the song's release date and the artist's status. Older songs may lose relevance, and the artist's ongoing activity can impact popularity.
 
-Combining Spotify API album release dates with artist lifespan data from [MusicBrainz.org](https://musicbrainz.org/), this study categorizes the United States top tracks of the artists as "Regular Release" if the artist was active and "Releases of Non-Active Artist" otherwise. Plots below for popular and unpopular artists show track release time versus popularity.
+Combining Spotify API album release dates with artist lifespan data from [MusicBrainz.org](https://musicbrainz.org/), the graph below plots the top tracks in the United States market for the RS artists as "Regular Release" if the artist was active and "Releases of Non-Active Artist" otherwise, while comparing the tracks's popularity versus the date of the release.
 
 ```{r, include = FALSE, echo = FALSE}
 artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
@@ -818,7 +820,7 @@ The first plot does not show significant correlation. The second graph, however,
 
 ##### **3.3 Audio Feature Analysis**
 
-NExt, this study explores audio features in the US top tracks of today's  [50 most popular artists](https://chartmasters.org/spotify-most-popular-artists/) versus RS ranked artists. Plots below display density distributions of tracks' Audio Features, colored by artists' popularity.
+Next, this study explores audio features in the US top tracks of today's  [50 most popular artists](https://chartmasters.org/spotify-most-popular-artists/) versus RS ranked popular and unpopular artists. Plots below display density distributions of tracks' Audio Features, colored by artists' popularity.
 
 ```{r, fig.height=20, include=FALSE, echo=FALSE}
 # Merge the dataframes based on artist_spotify
@@ -897,14 +899,14 @@ print(grid_plots)
 
 Due to word limit constraints, the discussion will focus on features with significant differences, excluding concepts.
 
-In summary, today's most successful music exhibits higher danceability (around 0.75 energy level), is quieter, less acoustic, released in the studio version (lower liveness), and with lower valence. Notably, Popular Top 100 artists align more with today's popular artists in energy, loudness, acousticness, and liveness, suggesting audio features impact track and artist endurance.
+In summary, today's most successful music exhibits higher danceability (around 0.75 energy level), is quieter, less acoustic, released in the studio version (lower liveness), and with lower valence. Notably, Popular Top 100 artists align more with today's most popular artists in energy, loudness, acousticness, and liveness, suggesting audio features may impact track and artist endurance.
 
 The difference in the Valence feature is also interesting. According to Spotify, this feature reflects overall positiveness of the song, whereas low valence indicates a more negative tone (e.g. sad, depressed, angry). Further analysis could investigate the relationship of this change with broader societal issues over time.
 
 
 ##### **3.4 Conclusion**
 
-This study analyzed how the music from the artists of the top 100 Rolling Stones has endured. Results show that the majority of the artists and their songs, have succeeded on their battle against time. The number of hits, relaunching old successes, and song audio features may have an impact on current popularity. Further studies can explore causality and test these findings globally.
+This study analyzed how the music from the artists of the top 100 Rolling Stones has endured. Results show that the majority of the artists and their songs, have succeeded on their battle against time. The number of hits, relaunching of old successes, and song audio features may have an impact on current popularity. Further studies may explore causality and test these findings globally.
 
 
 ## Appendix: All code in this assignment
