@@ -634,8 +634,8 @@ library(patchwork)
 
 **Github repository:** 'https://github.com/editor210/MY_472_Final_Assignment'
 
-### **1. Introduction**
-This research endeavors to explore how has the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/), according to Rolling Stones (RS) magazine, endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
+#### **1. Introduction**
+This research endeavors to explore how the music of the ["100 Greatest Musical Artists of All Time"](https://www.rollingstone.com/music/music-lists/100-greatest-artists-147446/), according to Rolling Stones (RS) magazine, endured at the close of 2023.The analysis comprises three stages, analysing Spotify popularity, examining the impact of the time of the releases on popularity and evaluating the tracks audio features and their current popularity.
 
 #### **2. Data**
 Various data sources were used to explore this topic:
@@ -730,7 +730,7 @@ From the plot above, it is clear that, the vast majority of artists in the RS ra
 
 The artist's current popularity can be influenced by the song's release date and the artist's status. Older songs may lose relevance, and the artist's ongoing activity can impact popularity.
 
-Combining Spotify API album release dates with artist lifespan data from [MusicBrainz.org](https://musicbrainz.org/), the graph below plots the top tracks in the United States market for the RS artists as "Regular Release" if the artist was active and "Releases of Non-Active Artist" otherwise, while comparing the tracks's popularity versus the date of the release.
+Combining Spotify API album release dates with artist lifespan data from [MusicBrainz.org](https://musicbrainz.org/), the graph below plots top tracks in the United States market for RS artists as "Regular Release" if the artist was active and "Releases of Non-Active Artist" otherwise, while comparing the tracks's popularity versus the date of the release.
 
 ```{r, include = FALSE, echo = FALSE}
 artist_info_ranking <- readRDS("./data/artist_info_ranking.rds")
@@ -815,7 +815,7 @@ grid.arrange(p2, p3, ncol = 2)
 
 Notably, pre-1995 releases dominate, which is expected given the historical figures in the RS ranking.
 
-The first plot does not show significant correlation. The second graph, however, suggests a connection between release time and popularity. Interestingly, recent releases boost non-active artists’ popularity but reduce it for active artists. Without making any causality claims, this suggests that an artist’s end may enhance long-term popularity, by having multiple hits while active, or by the relaunching of old hits during inactive periods.
+The first plot lack significant correlation while the second graph suggests a connection between release time and popularity. Interestingly, recent releases boost non-active artists’ popularity but reduce it for active artists. Without making any causality claims, this suggests that an artist’s end may enhance long-term popularity, by having multiple hits while active, or by the relaunching of old hits during inactive periods.
 
 
 ##### **3.3 Audio Feature Analysis**
@@ -897,7 +897,7 @@ grid_plots <- wrap_plots(plots, ncol = 2)
 print(grid_plots)
 ```
 
-Due to word limit constraints, the discussion will focus on features with significant differences, excluding concepts.
+Due to word limit constraints, the discussion will focus on features with significant differences, not mentioning features’ [definitions](https://developer.spotify.com/documentation/web-api/reference/get-audio-features).
 
 In summary, today's most successful music exhibits higher danceability (around 0.75 energy level), is quieter, less acoustic, released in the studio version (lower liveness), and with lower valence. Notably, Popular Top 100 artists align more with today's most popular artists in energy, loudness, acousticness, and liveness, suggesting audio features may impact track and artist endurance.
 
@@ -906,7 +906,7 @@ The difference in the Valence feature is also interesting. According to Spotify,
 
 ##### **3.4 Conclusion**
 
-This study analyzed how the music from the artists of the top 100 Rolling Stones has endured. Results show that the majority of the artists and their songs, have succeeded on their battle against time. The number of hits, relaunching of old successes, and song audio features may have an impact on current popularity. Further studies may explore causality and test these findings globally.
+This study analyzed how the music from the artists of the top 100 Rolling Stones has endured. Results show that the majority of the artists and their songs, have succeeded against time. The number of hits, relaunching old successes, and song audio features may impact current popularity. Further studies may explore causality and test these findings globally.
 
 
 ## Appendix: All code in this assignment
